@@ -2,6 +2,12 @@
 
 API REST do projeto RotaSegura usando Node.js, JavaScript e Express.
 
+## Integrantes do Projeto
+
+- Igor Costa Alcantara de Macedo
+- Manoel Vandeildo da Silva Melo
+- Maria Beatriz Targino
+
 ## Requisitos
 
 - Node.js 18 ou superior
