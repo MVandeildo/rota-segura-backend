@@ -1,0 +1,50 @@
+Visão do Produto: RotaSegura
+
+Problema
+
+Pais e responsáveis, motoristas e gestores de transporte escolar enfrentam dificuldades para acompanhar e organizar o transporte de estudantes. Atualmente, muitas informações são controladas por meio de listas em papel, planilhas e aplicativos de mensagens, dificultando o acompanhamento das rotas, o registro de embarque e desembarque dos alunos e a comunicação entre os envolvidos.
+
+Essa falta de centralização pode gerar falhas de comunicação, informações desatualizadas, dificuldade para identificar a localização do veículo e insegurança para os responsáveis durante o deslocamento dos estudantes.
+
+Solução proposta
+
+O RotaSegura é um sistema de gestão e monitoramento de transporte escolar que centraliza informações sobre estudantes, motoristas, veículos e rotas em uma única plataforma. O sistema permite acompanhar o transporte em tempo real, registrar digitalmente o embarque e desembarque dos alunos, facilitar a comunicação com pais e responsáveis e gerenciar informações relacionadas aos pagamentos do serviço.
+
+A proposta é oferecer uma solução simples e acessível que contribua para tornar o transporte escolar mais seguro, organizado e eficiente.
+
+Público-alvo
+
+- Pais e responsáveis que desejam acompanhar o deslocamento dos estudantes
+- Motoristas responsáveis pela realização das rotas de transporte escolar
+- Gestores e administradores responsáveis pelo gerenciamento dos transportes e das rotas
+- Empresas de transporte escolar que necessitam centralizar e organizar suas operações
+
+Impacto esperado
+
+- Aumentar a segurança dos estudantes durante o transporte escolar
+- Permitir maior controle sobre embarques e desembarques
+- Melhorar a comunicação entre motoristas, responsáveis e gestores
+- Centralizar informações sobre estudantes, veículos e rotas
+- Reduzir falhas e problemas causados pelo controle manual das informações
+- Facilitar a gestão e o acompanhamento das operações de transporte escolar
+
+Solução em alto nível
+
+Uma aplicação web responsiva onde os usuários autorizados podem:
+
+- Criar e gerenciar contas de responsáveis, motoristas e gestores
+- Cadastrar estudantes, veículos e informações das rotas
+- Visualizar e acompanhar a localização do veículo em tempo real
+- Registrar digitalmente o embarque e desembarque dos estudantes
+- Consultar informações sobre as rotas e horários previstos
+- Enviar e receber notificações relacionadas ao transporte
+- Gerenciar pagamentos e informações financeiras do serviço
+- Consultar históricos de viagens e registros de embarque e desembarque
+
+O que este produto NÃO é
+
+- Não é um sistema acadêmico ou substituto de plataformas escolares
+- Não substitui sistemas oficiais de gestão educacional
+- Não é um aplicativo de transporte público ou de transporte por demanda
+- Não permite que qualquer usuário acompanhe veículos sem autorização
+- Não tem como objetivo realizar a gestão pedagógica ou administrativa das instituições de ensino
