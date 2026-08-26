@@ -30,7 +30,7 @@ Descrição: Como motorista, quero marcar a presença do aluno no embarque e des
 
 Critério de Aceitação: Gravar o horário e o local do registro e atualizar a lista do dia.
 
-## HU06 - Rastreamento da Van
+## HU06 - Rastreamento do Veiculo
 
 Descrição: Como responsável, quero visualizar o veiculo no mapa pelo app para saber a localização e o horário de chegada.
 
