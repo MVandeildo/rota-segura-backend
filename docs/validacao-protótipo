@@ -1,0 +1,93 @@
+Validação do Protótipo: RotaSegura
+
+Informações gerais
+
+Ferramenta: Canva
+Acesso ao protótipo: https://canva.link/htlrhdp75boglid
+
+Sessões realizadas: 2 sessões, com 3 participantes cada
+Perfil dos participantes: pais ou responsáveis por estudantes que utilizam transporte escolar e motoristas de transporte escolar
+Metodologia: teste de usabilidade com tarefas definidas + entrevista pós-teste
+
+Tarefas testadas
+
+1. Criar uma conta no RotaSegura
+2. Fazer login no sistema
+3. Consultar a rota e localização do transporte escolar
+4. Registrar o embarque ou desembarque de um estudante
+5. Consultar informações sobre pagamentos
+
+Resultados por tarefa
+
+Tarefa 1: Criar conta
+
+| Participante | Concluiu? | Tempo    | Dificuldades                                                                  |
+| ------------ | --------- | -------- | ----------------------------------------------------------------------------- |
+| P1           | Sim       | 1min 15s | Ficou em dúvida sobre qual tipo de usuário selecionar                         |
+| P2           | Sim       | 52s      | Nenhuma                                                                       |
+| P3           | Sim       | 1min 30s | Teve dificuldade para identificar os campos obrigatórios                      |
+| P4           | Sim       | 1min 08s | Nenhuma                                                                       |
+| P5           | Não       | -        | Não encontrou o botão de confirmação após preencher os dados                  |
+| P6           | Sim       | 1min 45s | Ficou em dúvida sobre quais informações do estudante deveriam ser cadastradas |
+
+Conclusão: 5 de 6 participantes concluíram a tarefa. O principal problema identificado foi a falta de clareza sobre o tipo de usuário e sobre algumas informações necessárias durante o cadastro.
+Tarefa 2: Login
+
+Todos os 6 participantes concluíram a tarefa sem dificuldades significativas. O tempo médio foi de aproximadamente 25 segundos.
+
+Conclusão: O fluxo de login foi considerado simples e intuitivo pelos participantes.
+
+Tarefa 3: Consultar rota e localização do transporte
+
+| Participante | Concluiu? | Dificuldades                                                                    |
+| ------------ | --------- | ------------------------------------------------------------------------------- |
+| P1           | Sim       | Não encontrou a opção de localização imediatamente                              |
+| P2           | Sim       | Nenhuma                                                                         |
+| P3           | Sim       | Teve dificuldade para interpretar algumas informações exibidas no mapa          |
+| P4           | Sim       | Nenhuma                                                                         |
+| P5           | Sim       | Confundiu o horário previsto com o horário atual                                |
+| P6           | Não       | Não identificou que o ícone do veículo representava a localização do transporte |
+
+Conclusão: A funcionalidade de acompanhamento foi compreendida pela maioria dos participantes, porém a representação das informações no mapa e a diferenciação entre horário previsto e localização atual precisam ser mais claras.
+
+Tarefa 4: Registrar embarque ou desembarque
+
+Todos os participantes conseguiram realizar o registro. 4 participantes identificaram a funcionalidade diretamente pela tela principal, enquanto 2 acessaram primeiro o menu de estudantes.
+
+O processo foi considerado simples, porém alguns participantes sugeriram que o sistema apresentasse uma confirmação visual após o registro.
+
+Conclusão: O fluxo de registro de embarque e desembarque apresentou boa compreensão, mas é importante fornecer uma confirmação clara para evitar dúvidas sobre a conclusão da ação.
+
+Tarefa 5: Consultar pagamentos
+
+| Participante | Concluiu? | Dificuldades                                            |
+| ------------ | --------- | ------------------------------------------------------- |
+| P1           | Sim       | Nenhuma                                                 |
+| P2           | Sim       | Não encontrou imediatamente o histórico de pagamentos   |
+| P3           | Sim       | Nenhuma                                                 |
+| P4           | Sim       | Teve dúvida sobre o status de uma cobrança              |
+| P5           | Sim       | Nenhuma                                                 |
+| P6           | Não       | Não identificou a opção de pagamentos no menu principal |
+
+Conclusão: 5 de 6 participantes concluíram a tarefa. A principal dificuldade foi localizar a área financeira e compreender alguns dos status apresentados.
+
+Problemas identificados e ações tomadas
+
+| # | Problema                                                         | Severidade | Ação tomada                                                                   |
+| - | ---------------------------------------------------------------- | ---------- | ----------------------------------------------------------------------------- |
+| 1 | Seleção do tipo de usuário pouco clara durante o cadastro        | Alta       | Adicionadas descrições para diferenciar responsável, motorista e gestor       |
+| 2 | Localização do transporte pouco evidente no mapa                 | Alta       | Adicionado destaque visual para o veículo e uma legenda explicativa           |
+| 3 | Diferença entre horário previsto e localização atual pouco clara | Média      | Adicionados rótulos específicos para "Horário previsto" e "Localização atual" |
+| 4 | Falta de confirmação após registro de embarque/desembarque       | Média      | Adicionada mensagem de confirmação após o registro                            |
+| 5 | Área de pagamentos difícil de localizar                          | Média      | Adicionado acesso direto à área de pagamentos no menu principal               |
+| 6 | Status dos pagamentos pouco explicativos                         | Baixa      | Adicionadas descrições aos diferentes status de pagamento                     |
+
+Conclusão geral
+
+O protótipo do RotaSegura apresentou resultados satisfatórios na validação dos principais fluxos do sistema, especialmente nas funcionalidades de login e registro de embarque e desembarque. As principais dificuldades encontradas estiveram relacionadas à identificação de algumas funcionalidades e à interpretação das informações apresentadas na interface.
+
+As correções de maior impacto, como a melhoria da identificação dos tipos de usuário, o destaque da localização do veículo e a confirmação dos registros de embarque e desembarque, foram aplicadas após os testes.
+
+A área de notificações e o fluxo completo de gerenciamento de rotas não foram testados nesta etapa por limitação de tempo. Essas funcionalidades ficam como pendências para uma próxima rodada de validação do protótipo.
+
+
