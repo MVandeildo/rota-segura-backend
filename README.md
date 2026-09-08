@@ -40,6 +40,10 @@ A API ficará disponível em `http://localhost:3000`.
 ## Endpoint inicial
 
 - `GET /api/v1/health`
+- `GET /api/status`
+- `GET|POST|PUT|DELETE /api/usuarios`
+- `GET|POST|PUT|DELETE /api/veiculos`
+- `GET|POST|PUT|DELETE /api/rotas`
 
 ## Estrutura
 
