@@ -35,3 +35,18 @@ exports.criar = async (req, res) => {
     return res.status(500).json({ erro: 'Erro ao cadastrar gestor.', detalhe: error.message });
   }
 };
+
+// GET /api/gestores - Listar todos os gestores
+exports.listar = async (req, res) => {
+  try {
+    const result = await db.query(
+      `SELECT id, nome, email, perfil, telefone, created_at 
+       FROM usuarios 
+       WHERE perfil = 'GESTOR' 
+       ORDER BY id ASC`
+    );
+    return res.status(200).json(result.rows);
+  } catch (error) {
+    return res.status(500).json({ erro: 'Erro ao listar gestores.', detalhe: error.message });
+  }
+};
