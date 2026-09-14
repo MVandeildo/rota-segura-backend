@@ -50,3 +50,25 @@ exports.listar = async (req, res) => {
     return res.status(500).json({ erro: 'Erro ao listar gestores.', detalhe: error.message });
   }
 };
+
+// GET /api/gestores/:id - Buscar gestor por ID
+exports.buscarPorId = async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const result = await db.query(
+      `SELECT id, nome, email, perfil, telefone, created_at 
+       FROM usuarios 
+       WHERE id = $1 AND perfil = 'GESTOR'`,
+      [id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ erro: 'Gestor não encontrado.' });
+    }
+
+    return res.status(200).json(result.rows[0]);
+  } catch (error) {
+    return res.status(500).json({ erro: 'Erro ao buscar gestor.', detalhe: error.message });
+  }
+};
