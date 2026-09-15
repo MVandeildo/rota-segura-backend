@@ -123,3 +123,25 @@ exports.atualizar = async (req, res) => {
     return res.status(500).json({ erro: 'Erro ao atualizar gestor.', detalhe: error.message });
   }
 };
+
+// DELETE /api/gestores/:id - Remover gestor
+exports.deletar = async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const result = await db.query(
+      `DELETE FROM usuarios 
+       WHERE id = $1 AND perfil = 'GESTOR' 
+       RETURNING id`,
+      [id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ erro: 'Gestor não encontrado.' });
+    }
+
+    return res.status(204).send();
+  } catch (error) {
+    return res.status(500).json({ erro: 'Erro ao remover gestor.', detalhe: error.message });
+  }
+};
