@@ -2,6 +2,10 @@ const db = require('../config/database');
 const bcrypt = require('bcrypt');
 
 const SALT_ROUNDS = 10;
+const emailValido = (email) => {
+  const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return regex.test(email);
+};
 
 // POST /api/gestores - Cadastrar um novo gestor
 exports.criar = async (req, res) => {
@@ -10,6 +14,10 @@ exports.criar = async (req, res) => {
   // Validação dos dados obrigatórios
   if (!nome || !email || !senha) {
     return res.status(400).json({ erro: 'Nome, e-mail e senha são obrigatórios.' });
+  }
+
+  if (!emailValido(email)) {
+    return res.status(400).json({ erro: 'Informe um e-mail válido.' });
   }
 
   try {
@@ -32,7 +40,8 @@ exports.criar = async (req, res) => {
 
     return res.status(201).json(result.rows[0]);
   } catch (error) {
-    return res.status(500).json({ erro: 'Erro ao cadastrar gestor.', detalhe: error.message });
+    console.error(error);
+    return res.status(500).json({ erro: 'Erro ao cadastrar gestor.' });
   }
 };
 
@@ -47,7 +56,8 @@ exports.listar = async (req, res) => {
     );
     return res.status(200).json(result.rows);
   } catch (error) {
-    return res.status(500).json({ erro: 'Erro ao listar gestores.', detalhe: error.message });
+    console.error(error);
+    return res.status(500).json({ erro: 'Erro ao listar gestores.' });
   }
 };
 
@@ -69,7 +79,8 @@ exports.buscarPorId = async (req, res) => {
 
     return res.status(200).json(result.rows[0]);
   } catch (error) {
-    return res.status(500).json({ erro: 'Erro ao buscar gestor.', detalhe: error.message });
+    console.error(error);
+    return res.status(500).json({ erro: 'Erro ao buscar gestor.' });
   }
 };
 
@@ -80,6 +91,10 @@ exports.atualizar = async (req, res) => {
 
   if (!nome || !email) {
     return res.status(400).json({ erro: 'Nome e e-mail são obrigatórios para atualização.' });
+  }
+
+  if (!emailValido(email)) {
+    return res.status(400).json({ erro: 'Informe um e-mail válido.' });
   }
 
   try {
@@ -120,7 +135,8 @@ exports.atualizar = async (req, res) => {
 
     return res.status(200).json(result.rows[0]);
   } catch (error) {
-    return res.status(500).json({ erro: 'Erro ao atualizar gestor.', detalhe: error.message });
+    console.error(error);
+    return res.status(500).json({ erro: 'Erro ao atualizar gestor.' });
   }
 };
 
@@ -142,6 +158,7 @@ exports.deletar = async (req, res) => {
 
     return res.status(204).send();
   } catch (error) {
-    return res.status(500).json({ erro: 'Erro ao remover gestor.', detalhe: error.message });
+    console.error(error);
+    return res.status(500).json({ erro: 'Erro ao remover gestor.' });
   }
 };
