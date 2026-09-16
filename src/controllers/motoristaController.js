@@ -30,4 +30,40 @@ exports.criar = async (req, res) => {
         });
     }
 
+  try{
+        const emailExistente = await db.query('SELECT id FROM usuarios WHERE email = $1', [emailFormatado]);
+
+        if (emailExistente.rows.length > 0) {
+            return res.status(400).json({
+            erro: 'E-mail já cadastrado.'
+        });
+    }
+
+    /* Criptografando a senha */
+    const senhaCriptografada = await bcrypt.hash(senha, SALT_ROUNDS);
+
+    /*inserir no banco de dados o motorista com perfil "motorista" */
+    const result = await db.query(
+        `INSERT INTO usuarios 
+        (nome, email, senha, perfil, telefone)
+        VALUES ($1, $2, $3, $4, $5)
+        RETURNING id, nome, email, perfil, telefone, created_at`,
+        [
+            nome.trim(),
+            emailFormatado,
+            senhaCriptografada,
+            'MOTORISTA',
+            telefone?.trim() || null
+        ]
+    );
+
+    res.status(201).json({ mensagem: 'Motorista criado com sucesso.', motorista: result.rows[0] });
+    
+    } catch (error) {
+        console.error('Erro ao cadastrar motorista:', error);
+
+        return res.status(500).json({
+        erro: 'Erro ao cadastrar motorista.'
+    });
+    }
 }
