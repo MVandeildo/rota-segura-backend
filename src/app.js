@@ -5,6 +5,7 @@ const morgan = require('morgan');
 
 const healthRoutes = require('./routes/health.routes');
 const usuarioRoutes = require('./routes/usuarioRoutes');
+const gestorRoutes = require('./routes/gestorRoutes');
 const veiculoRoutes = require('./routes/veiculoRoutes');
 const rotaRoutes = require('./routes/rotaRoutes');
 
@@ -27,6 +28,7 @@ app.get('/', (req, res) => {
 app.use('/api/v1/health', healthRoutes);
 
 app.use('/api/usuarios', usuarioRoutes);
+app.use('/api/gestores', gestorRoutes);
 app.use('/api/veiculos', veiculoRoutes);
 app.use('/api/rotas', rotaRoutes);
 
