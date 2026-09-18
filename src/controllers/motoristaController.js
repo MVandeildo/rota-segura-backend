@@ -42,23 +42,65 @@ exports.criar = async (req, res) => {
     /* Criptografando a senha */
     const senhaCriptografada = await bcrypt.hash(senha, SALT_ROUNDS);
 
+    /*POST /motoristas - Cria um novo motorista */
+exports.criar = async (req, res) => {
+    const { nome, email, senha, telefone } = req.body;
+    const emailFormatado = email?.trim().toLowerCase();
+
+    /* Validação dos campos obrigatórios */
+    if (!nome || !emailFormatado || !senha) {
+        return res.status(400).json({
+            erro: 'Nome, e-mail e senha são obrigatórios.'
+        });
+    }
+
+    /* Validação do formato do email */
+    if (!emailValido(emailFormatado)) {
+        return res.status(400).json({
+            erro: 'Informe um e-mail válido.'
+        });
+    }
+
+    try{
+        const [emailExistente] = await db.query(
+            'SELECT id FROM usuarios WHERE email = ?',
+            [emailFormatado]
+        );
+        if (emailExistente.length > 0) {
+            return res.status(400).json({
+            erro: 'E-mail já cadastrado.'
+        });
+    }
+
+    /* Criptografando a senha */
+    const senhaCriptografada = await bcrypt.hash(senha, SALT_ROUNDS);
+
     /*inserir no banco de dados o motorista com perfil "motorista" */
-    const result = await db.query(
-        `INSERT INTO usuarios 
+    const [result] = await db.query(
+        `INSERT INTO usuarios
         (nome, email, senha, perfil, telefone)
-        VALUES ($1, $2, $3, $4, $5)
-        RETURNING id, nome, email, perfil, telefone, created_at`,
-        [
-            nome.trim(),
-            emailFormatado,
-            senhaCriptografada,
-            'MOTORISTA',
-            telefone?.trim() || null
-        ]
+        VALUES (?, ?, ?, ?, ?)`,
+    [
+        nome.trim(),
+        emailFormatado,
+        senhaCriptografada,
+        'MOTORISTA',
+        telefone?.trim() || null
+    ]
     );
 
-    res.status(201).json({ mensagem: 'Motorista criado com sucesso.', motorista: result.rows[0] });
-    
+    const [motorista] = await db.query(
+        `SELECT id, nome, email, perfil, telefone, created_at
+        FROM usuarios
+        WHERE id = ?`,
+        [result.insertId]
+    );
+
+    res.status(201).json({
+        mensagem: 'Motorista criado com sucesso.',
+        motorista: motorista[0]
+    });
+
     } catch (error) {
         console.error('Erro ao cadastrar motorista:', error);
 
@@ -67,3 +109,24 @@ exports.criar = async (req, res) => {
     });
     }
 }
+
+    /*GET /motoristas - Lista todos os motoristas cadastrados */
+exports.listar = async (req, res) => {
+    try {
+        const [motoristas] = await db.query(
+            `SELECT id, nome, email, perfil, telefone, created_at
+             FROM usuarios
+             WHERE perfil = 'MOTORISTA'
+             ORDER BY id ASC`
+        );
+
+        return res.status(200).json(motoristas);
+
+    } catch (error) {
+        console.error('Erro ao listar motoristas:', error);
+
+        return res.status(500).json({
+            erro: 'Erro ao listar motoristas.'
+        });
+    }
+};
