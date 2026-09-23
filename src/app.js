@@ -9,6 +9,7 @@ const gestorRoutes = require('./routes/gestorRoutes');
 const veiculoRoutes = require('./routes/veiculoRoutes');
 const rotaRoutes = require('./routes/rotaRoutes');
 const alunoRoutes = require('./routes/alunoRoutes');
+const frotaRoutes = require('./routes/frotaRoutes');
 
 const { notFoundHandler, errorHandler } = require('./middlewares/error-handler');
 
@@ -33,6 +34,7 @@ app.use('/api/gestores', gestorRoutes);
 app.use('/api/veiculos', veiculoRoutes);
 app.use('/api/rotas', rotaRoutes);
 app.use('/api/alunos', alunoRoutes);
+app.use('/api/frota', frotaRoutes);
 
 app.get('/api/status', (req, res) => {
     return res.json({ status: 'API RotaSegura operacional!' });
