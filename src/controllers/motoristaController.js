@@ -12,115 +12,62 @@ const emailValido = (email) => {
   return regex.test(email);
 };
 
+const idValido = (id) => /^\d+$/.test(id) && Number(id) > 0;
+
+/*POST /motoristas - Cria um novo motorista */
 exports.criar = async (req, res) => {
     const { nome, email, senha, telefone } = req.body;
-    const emailFormatado = email?.trim().toLowerCase();
+    const nomeFormatado = typeof nome === 'string' ? nome.trim() : '';
+    const emailFormatado = typeof email === 'string' ? email.trim().toLowerCase() : '';
 
-    /* Validação dos campos obrigatórios */
-    if (!nome || !emailFormatado || !senha) {
-        return res.status(400).json({
-            erro: 'Nome, e-mail e senha são obrigatórios.'
-        });
+    if (!nomeFormatado || !emailFormatado || !senha) {
+        return res.status(400).json({ erro: 'Nome, e-mail e senha são obrigatórios.' });
     }
 
-    /* Validação do formato do email */
     if (!emailValido(emailFormatado)) {
-        return res.status(400).json({
-            erro: 'Informe um e-mail válido.'
-        });
+        return res.status(400).json({ erro: 'Informe um e-mail válido.' });
     }
 
-  try{
-        const emailExistente = await db.query('SELECT id FROM usuarios WHERE email = $1', [emailFormatado]);
-
-        if (emailExistente.rows.length > 0) {
-            return res.status(400).json({
-            erro: 'E-mail já cadastrado.'
-        });
-    }
-
-    /* Criptografando a senha */
-    const senhaCriptografada = await bcrypt.hash(senha, SALT_ROUNDS);
-
-    /*POST /motoristas - Cria um novo motorista */
-exports.criar = async (req, res) => {
-    const { nome, email, senha, telefone } = req.body;
-    const emailFormatado = email?.trim().toLowerCase();
-
-    /* Validação dos campos obrigatórios */
-    if (!nome || !emailFormatado || !senha) {
-        return res.status(400).json({
-            erro: 'Nome, e-mail e senha são obrigatórios.'
-        });
-    }
-
-    /* Validação do formato do email */
-    if (!emailValido(emailFormatado)) {
-        return res.status(400).json({
-            erro: 'Informe um e-mail válido.'
-        });
-    }
-
-    try{
-        const [emailExistente] = await db.query(
-            'SELECT id FROM usuarios WHERE email = ?',
+    try {
+        const emailExistente = await db.query(
+            'SELECT id FROM usuarios WHERE LOWER(email) = LOWER($1)',
             [emailFormatado]
         );
-        if (emailExistente.length > 0) {
-            return res.status(400).json({
-            erro: 'E-mail já cadastrado.'
+        if (emailExistente.rows.length > 0) {
+            return res.status(409).json({ erro: 'E-mail já cadastrado.' });
+        }
+
+        const senhaCriptografada = await bcrypt.hash(senha, SALT_ROUNDS);
+        const result = await db.query(
+            `INSERT INTO usuarios (nome, email, senha, perfil, telefone)
+             VALUES ($1, $2, $3, 'MOTORISTA', $4)
+             RETURNING id, nome, email, perfil, telefone, created_at`,
+            [nomeFormatado, emailFormatado, senhaCriptografada, telefone?.trim() || null]
+        );
+
+        return res.status(201).json({
+            mensagem: 'Motorista criado com sucesso.',
+            motorista: result.rows[0]
         });
-    }
-
-    /* Criptografando a senha */
-    const senhaCriptografada = await bcrypt.hash(senha, SALT_ROUNDS);
-
-    /*inserir no banco de dados o motorista com perfil "motorista" */
-    const [result] = await db.query(
-        `INSERT INTO usuarios
-        (nome, email, senha, perfil, telefone)
-        VALUES (?, ?, ?, ?, ?)`,
-    [
-        nome.trim(),
-        emailFormatado,
-        senhaCriptografada,
-        'MOTORISTA',
-        telefone?.trim() || null
-    ]
-    );
-
-    const [motorista] = await db.query(
-        `SELECT id, nome, email, perfil, telefone, created_at
-        FROM usuarios
-        WHERE id = ?`,
-        [result.insertId]
-    );
-
-    res.status(201).json({
-        mensagem: 'Motorista criado com sucesso.',
-        motorista: motorista[0]
-    });
-
     } catch (error) {
-        console.error('Erro ao cadastrar motorista:', error);
-
-        return res.status(500).json({
-        erro: 'Erro ao cadastrar motorista.'
-    });
+        if (error.code === '23505') {
+            return res.status(409).json({ erro: 'E-mail já cadastrado.' });
+        }
+        return res.status(500).json({ erro: 'Erro ao cadastrar motorista.' });
     }
-}
+};
 
     /*GET /motoristas - Lista todos os motoristas cadastrados */
 exports.listar = async (req, res) => {
     try {
-        const [motoristas] = await db.query(
+        const result = await db.query(
             `SELECT id, nome, email, perfil, telefone, created_at
              FROM usuarios
              WHERE perfil = 'MOTORISTA'
              ORDER BY id ASC`
         );
 
-        return res.status(200).json(motoristas);
+        return res.status(200).json(result.rows);
 
     } catch (error) {
         console.error('Erro ao listar motoristas:', error);
@@ -131,143 +78,118 @@ exports.listar = async (req, res) => {
     }
 };
 
-/* PUT /motoristas/:id - Atualiza os dados de um motorista existente */
-exports.atualizar = async (req, res) => {
+exports.buscarPorId = async (req, res) => {
     const { id } = req.params;
-    const { nome, email, senha, telefone } = req.body;
-
-    const emailFormatado = email?.trim().toLowerCase();
-
-    /* Validação dos campos obrigatórios */
-    if (!nome || !emailFormatado) {
-        return res.status(400).json({
-            erro: 'Nome e e-mail são obrigatórios.'
-        });
-    }
-
-    /* Validação do formato do e-mail */
-    if (!emailValido(emailFormatado)) {
-        return res.status(400).json({
-            erro: 'Informe um e-mail válido.'
-        });
+    if (!idValido(id)) {
+        return res.status(400).json({ erro: 'ID de motorista inválido.' });
     }
 
     try {
-        /* Verifica se o motorista existe */
-        const [motoristas] = await db.query(
-            `SELECT id
-             FROM usuarios
-             WHERE id = ? AND perfil = 'MOTORISTA'`,
-            [id]
-        );
-
-        if (motoristas.length === 0) {
-            return res.status(404).json({
-                erro: 'Motorista não encontrado.'
-            });
-        }
-
-        /* Verifica se o novo e-mail já pertence a outro usuário */
-        const [emailExistente] = await db.query(
-            `SELECT id
-             FROM usuarios
-             WHERE email = ? AND id <> ?`,
-            [emailFormatado, id]
-        );
-
-        if (emailExistente.length > 0) {
-            return res.status(400).json({
-                erro: 'O e-mail informado já pertence a outro usuário.'
-            });
-        }
-
-        /* Se uma nova senha foi enviada, criptografa antes de salvar */
-        if (senha) {
-            const senhaCriptografada = await bcrypt.hash(
-                senha,
-                SALT_ROUNDS
-            );
-
-            await db.query(
-                `UPDATE usuarios
-                 SET nome = ?, email = ?, senha = ?, telefone = ?
-                 WHERE id = ? AND perfil = 'MOTORISTA'`,
-                [
-                    nome.trim(),
-                    emailFormatado,
-                    senhaCriptografada,
-                    telefone?.trim() || null,
-                    id
-                ]
-            );
-        } else {
-            /* Atualiza sem alterar a senha */
-            await db.query(
-                `UPDATE usuarios
-                 SET nome = ?, email = ?, telefone = ?
-                 WHERE id = ? AND perfil = 'MOTORISTA'`,
-                [
-                    nome.trim(),
-                    emailFormatado,
-                    telefone?.trim() || null,
-                    id
-                ]
-            );
-        }
-
-        /* Busca os dados atualizados */
-        const [motoristaAtualizado] = await db.query(
+        const result = await db.query(
             `SELECT id, nome, email, perfil, telefone, created_at
-             FROM usuarios
-             WHERE id = ?`,
+             FROM usuarios WHERE id = $1 AND perfil = 'MOTORISTA'`,
             [id]
         );
+        if (result.rows.length === 0) {
+            return res.status(404).json({ erro: 'Motorista não encontrado.' });
+        }
+        return res.status(200).json(result.rows[0]);
+    } catch (error) {
+        return res.status(500).json({ erro: 'Erro ao buscar motorista.' });
+    }
+};
 
+/* PUT /motoristas/:id - Atualiza os dados de um motorista existente */
+exports.atualizar = async (req, res) => {
+    const { id } = req.params;
+    if (!idValido(id)) {
+        return res.status(400).json({ erro: 'ID de motorista inválido.' });
+    }
+
+    const dados = req.body || {};
+    const campos = [];
+    const valores = [];
+
+    if (Object.prototype.hasOwnProperty.call(dados, 'nome')) {
+        const nome = typeof dados.nome === 'string' ? dados.nome.trim() : '';
+        if (!nome) {
+            return res.status(400).json({ erro: 'Nome não pode ser vazio.' });
+        }
+        campos.push(`nome = $${valores.length + 1}`);
+        valores.push(nome);
+    }
+
+    if (Object.prototype.hasOwnProperty.call(dados, 'email')) {
+        const email = typeof dados.email === 'string' ? dados.email.trim().toLowerCase() : '';
+        if (!emailValido(email)) {
+            return res.status(400).json({ erro: 'Informe um e-mail válido.' });
+        }
+        campos.push(`email = $${valores.length + 1}`);
+        valores.push(email);
+    }
+
+    if (Object.prototype.hasOwnProperty.call(dados, 'senha')) {
+        if (typeof dados.senha !== 'string' || !dados.senha) {
+            return res.status(400).json({ erro: 'Senha não pode ser vazia.' });
+        }
+        campos.push(`senha = $${valores.length + 1}`);
+        valores.push(await bcrypt.hash(dados.senha, SALT_ROUNDS));
+    }
+
+    if (Object.prototype.hasOwnProperty.call(dados, 'telefone')) {
+        campos.push(`telefone = $${valores.length + 1}`);
+        valores.push(typeof dados.telefone === 'string' ? dados.telefone.trim() || null : null);
+    }
+
+    if (campos.length === 0) {
+        return res.status(400).json({ erro: 'Informe ao menos um campo para atualizar.' });
+    }
+
+    try {
+        valores.push(id);
+        const result = await db.query(
+            `UPDATE usuarios SET ${campos.join(', ')}
+             WHERE id = $${valores.length} AND perfil = 'MOTORISTA'
+             RETURNING id, nome, email, perfil, telefone, created_at`,
+            valores
+        );
+        if (result.rows.length === 0) {
+            return res.status(404).json({ erro: 'Motorista não encontrado.' });
+        }
         return res.status(200).json({
             mensagem: 'Motorista atualizado com sucesso.',
-            motorista: motoristaAtualizado[0]
+            motorista: result.rows[0]
         });
-
     } catch (error) {
-        console.error('Erro ao atualizar motorista:', error);
-
-        return res.status(500).json({
-            erro: 'Erro ao atualizar motorista.'
-        });
+        if (error.code === '23505') {
+            return res.status(409).json({ erro: 'E-mail já cadastrado.' });
+        }
+        return res.status(500).json({ erro: 'Erro ao atualizar motorista.' });
     }
 };
 
 /* DELETE /api/motoristas/:id */
 exports.deletar = async (req, res) => {
     const { id } = req.params;
+    if (!idValido(id)) {
+        return res.status(400).json({ erro: 'ID de motorista inválido.' });
+    }
 
     try {
-        /* Verifica se o motorista existe */
-        const [motoristas] = await db.query(
-            `SELECT id
-             FROM usuarios
-             WHERE id = ? AND perfil = 'MOTORISTA'`,
+        const result = await db.query(
+            `DELETE FROM usuarios WHERE id = $1 AND perfil = 'MOTORISTA' RETURNING id`,
             [id]
         );
-
-        if (motoristas.length === 0) {
-            return res.status(404).json({
-                erro: 'Motorista não encontrado.'
-            });
+        if (result.rows.length === 0) {
+            return res.status(404).json({ erro: 'Motorista não encontrado.' });
         }
-
-        /* Exclui o motorista */
-        await db.query(
-            `DELETE FROM usuarios
-             WHERE id = ? AND perfil = 'MOTORISTA'`,
-            [id]
-        );
 
         return res.status(204).send();
 
     } catch (error) {
-        console.error('Erro ao excluir motorista:', error);
-
+        if (error.code === '23503') {
+            return res.status(409).json({ erro: 'Motorista vinculado a uma rota não pode ser removido.' });
+        }
         return res.status(500).json({
             erro: 'Erro ao excluir motorista.'
         });
