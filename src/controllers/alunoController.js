@@ -17,9 +17,9 @@ const criarAluno = async (req, res) => {
 };
 
 
-const listarAlunos = (req, res) => {
+const listarAlunos = async (req, res) => {
     try {
-        const alunos = alunoService.listarAlunos();
+        const alunos = await alunoService.listarAlunos();
 
         return res.status(200).json(alunos);
 
@@ -31,9 +31,9 @@ const listarAlunos = (req, res) => {
 };
 
 
-const buscarAlunoPorId = (req, res) => {
+const buscarAlunoPorId = async (req, res) => {
     try {
-        const aluno = alunoService.buscarAlunoPorId(req.params.id);
+        const aluno = await alunoService.buscarAlunoPorId(req.params.id);
 
         return res.status(200).json(aluno);
 
@@ -65,9 +65,9 @@ const atualizarAluno = async (req, res) => {
 };
 
 
-const removerAluno = (req, res) => {
+const removerAluno = async (req, res) => {
     try {
-        const aluno = alunoService.removerAluno(req.params.id);
+        const aluno = await alunoService.removerAluno(req.params.id);
 
         return res.status(200).json({
             mensagem: 'Aluno inativado com sucesso.',
