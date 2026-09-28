@@ -1,5 +1,11 @@
 const usuarioService = require('../services/usuarioService');
 
+const responderErro = (res, error, mensagem) => {
+    return res.status(error.statusCode || 500).json({
+        erro: error.statusCode ? error.message : mensagem
+    });
+};
+
 const criarUsuario = async (req, res) => {
     try {
         const usuario = await usuarioService.criarUsuario(req.body);
@@ -10,37 +16,31 @@ const criarUsuario = async (req, res) => {
         });
 
     } catch (error) {
-        return res.status(400).json({
-            erro: error.message
-        });
+        return responderErro(res, error, 'Erro ao cadastrar usuário.');
     }
 };
 
 
-const listarUsuarios = (req, res) => {
+const listarUsuarios = async (req, res) => {
     try {
-        const usuarios = usuarioService.listarUsuarios();
+        const usuarios = await usuarioService.listarUsuarios();
 
         return res.status(200).json(usuarios);
 
     } catch (error) {
-        return res.status(400).json({
-            erro: error.message
-        });
+        return responderErro(res, error, 'Erro ao listar usuários.');
     }
 };
 
 
-const buscarUsuario = (req, res) => {
+const buscarUsuario = async (req, res) => {
     try {
-        const usuario = usuarioService.buscarUsuarioPorId(req.params.id);
+        const usuario = await usuarioService.buscarUsuarioPorId(req.params.id);
 
         return res.status(200).json(usuario);
 
     } catch (error) {
-        return res.status(404).json({
-            erro: error.message
-        });
+        return responderErro(res, error, 'Erro ao buscar usuário.');
     }
 };
 
@@ -58,16 +58,14 @@ const atualizarUsuario = async (req, res) => {
         });
 
     } catch (error) {
-        return res.status(400).json({
-            erro: error.message
-        });
+        return responderErro(res, error, 'Erro ao atualizar usuário.');
     }
 };
 
 
-const removerUsuario = (req, res) => {
+const removerUsuario = async (req, res) => {
     try {
-        const usuario = usuarioService.removerUsuario(req.params.id);
+        const usuario = await usuarioService.removerUsuario(req.params.id);
 
         return res.status(200).json({
             mensagem: 'Usuário inativado com sucesso.',
@@ -75,9 +73,7 @@ const removerUsuario = (req, res) => {
         });
 
     } catch (error) {
-        return res.status(404).json({
-            erro: error.message
-        });
+        return responderErro(res, error, 'Erro ao remover usuário.');
     }
 };
 
