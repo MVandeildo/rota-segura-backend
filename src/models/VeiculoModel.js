@@ -12,7 +12,7 @@ class VeiculoModel {
     }
 
     static async findByPlaca(placa) {
-        const result = db.query("SELECT * FROM veiculos WHERE placa = $1", [placa]);
+        const result = await db.query("SELECT * FROM veiculos WHERE placa = $1", [placa]);
         return result.rows[0];
     }
 
