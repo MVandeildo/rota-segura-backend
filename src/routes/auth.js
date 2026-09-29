@@ -1,169 +1,234 @@
 const express = require("express");
 const router = express.Router();
-const { hash } = require("bcryptjs");
-
-const usuario = require("../models/usuario");
-
-router.post("/signup", async (req, res) => {
-  try {
-    const { email, password } = req.body;
-
-    const usuario = await Usuario.findOne({ email: email });
-
-    if (usuario)
-      return res.status(500).json({
-        message: "usuario já existe!",
-        type: "warning",
-      });
-    
-    const passwordHash = await hash(password, 10);
-    const novousuario = new usuario({
-      email: email,
-      password: passwordHash,
-    });
-
-    await novousuario.save();
-    res.status(200).json({
-      message: "usuario criado com sucesso!",
-      type: "success",
-    });
-  } catch (error) {
-    res.status(500).json({
-      type: "error",
-      message: "Error ao criar usuario!",
-      error,
-    });
-  }
-});
 
 const { hash, compare } = require("bcryptjs");
 
+const pool = require("../config/database");
+
 const {
-  createAccessToken,
-  createRefreshToken,
-  sendAccessToken,
-  sendRefreshToken,
+    createAccessToken,
+    createRefreshToken,
+    sendAccessToken,
+    sendRefreshToken,
 } = require("../utils/tokens");
 
-router.post("/signin", async (req, res) => {
-  try {
-    const { email, password } = req.body;
-    const usuario = await usuario.findOne({ email: email });
+router.post("/signup", async (req, res) => {
+    try {
+        const { email, password } = req.body;
 
-    if (!usuario)
-      return res.status(500).json({
-        message: "usuario não existe!",
-        type: "error",
-      });
+        if (!email || !password) {
+            return res.status(400).json({
+                message: "E-mail e senha são obrigatórios.",
+                type: "error",
+            });
+        }
 
-      const isMatch = await compare(password, usuario.password);
+        const usuarioExistente = await pool.query(
+            "SELECT id FROM usuarios WHERE email = $1",
+            [email]
+        );
 
-    if (!isMatch)
-      return res.status(500).json({
-        message: "Password incorreta!",
-        type: "error",
-      });
+        if (usuarioExistente.rows.length > 0) {
+            return res.status(400).json({
+                message: "Usuário já existe!",
+                type: "warning",
+            });
+        }
 
-    const accessToken = createAccessToken(usuario._id);
-    const refreshToken = createRefreshToken(usuario._id);
+        const passwordHash = await hash(password, 10);
 
-    usuario.refreshtoken = refreshToken;
-    await usuario.save();
+        const novoUsuario = await pool.query(
+            `INSERT INTO usuarios (email, password)
+             VALUES ($1, $2)
+             RETURNING id, email, verified`,
+            [email, passwordHash]
+        );
 
-    sendRefreshToken(res, refreshToken);
-    sendAccessToken(req, res, accessToken);
-  } catch (error) {
-    res.status(500).json({
-      type: "error",
-      message: "Error signing in!",
-      error,
-    });
-  }
+        return res.status(201).json({
+            message: "Usuário criado com sucesso!",
+            type: "success",
+            usuario: novoUsuario.rows[0],
+        });
+
+    } catch (error) {
+        console.error(error);
+
+        return res.status(500).json({
+            type: "error",
+            message: "Erro ao criar usuário!",
+            error: error.message,
+        });
+    }
 });
 
-router.post("/logout", (_req, res) => {
-  res.clearCookie("refreshtoken");
-  return res.json({
-    message: "Logged out successfully!",
-    type: "success",
-  });
+router.post("/signin", async (req, res) => {
+    try {
+        const { email, password } = req.body;
+
+        if (!email || !password) {
+            return res.status(400).json({
+                message: "E-mail e senha são obrigatórios.",
+                type: "error",
+            });
+        }
+
+        const resultado = await pool.query(
+            `SELECT id, email, password, verified
+             FROM usuarios
+             WHERE email = $1`,
+            [email]
+        );
+
+        if (resultado.rows.length === 0) {
+            return res.status(404).json({
+                message: "Usuário não existe!",
+                type: "error",
+            });
+        }
+
+        const usuario = resultado.rows[0];
+
+        const isMatch = await compare(
+            password,
+            usuario.password
+        );
+
+        if (!isMatch) {
+            return res.status(401).json({
+                message: "Senha incorreta!",
+                type: "error",
+            });
+        }
+
+        const accessToken = createAccessToken(usuario.id);
+        const refreshToken = createRefreshToken(usuario.id);
+
+        await pool.query(
+            `UPDATE usuarios
+             SET refresh_token = $1
+             WHERE id = $2`,
+            [refreshToken, usuario.id]
+        );
+
+        sendRefreshToken(res, refreshToken);
+
+        sendAccessToken(
+            req,
+            res,
+            accessToken
+        );
+
+    } catch (error) {
+        console.error(error);
+
+        return res.status(500).json({
+            type: "error",
+            message: "Erro ao fazer login!",
+            error: error.message,
+        });
+    }
+});
+
+router.post("/logout", (req, res) => {
+    res.clearCookie("refreshtoken");
+
+    return res.json({
+        message: "Logout realizado com sucesso!",
+        type: "success",
+    });
 });
 
 const { verify } = require("jsonwebtoken");
+
 router.post("/refresh_token", async (req, res) => {
-  try {
-    const { refreshtoken } = req.cookies;
-    if (!refreshtoken)
-      return res.status(500).json({
-        message: "No refresh token!",
-        type: "error",
-      });
-    
-    let id;
     try {
-      id = verify(refreshtoken, process.env.REFRESH_TOKEN_SECRET).id;
+        const { refreshtoken } = req.cookies;
+
+        if (!refreshtoken) {
+            return res.status(401).json({
+                message: "No refresh token!",
+                type: "error",
+            });
+        }
+
+        let id;
+        try {
+            const decoded = verify(refreshtoken, process.env.REFRESH_TOKEN_SECRET);
+            id = decoded.id;
+        } catch (error) {
+            return res.status(401).json({
+                message: "Invalid refresh token!",
+                type: "error",
+            });
+        }
+
+        if (!id) {
+            return res.status(401).json({
+                message: "Invalid refresh token!",
+                type: "error",
+            });
+        }
+
+        // Busca o utilizador no PostgreSQL
+        const resultado = await pool.query(
+            "SELECT * FROM usuarios WHERE id = $1",
+            [id]
+        );
+
+        if (resultado.rows.length === 0) {
+            return res.status(404).json({
+                message: "Usuario não encontrado!",
+                type: "error",
+            });
+        }
+
+        const usuario = resultado.rows[0];
+
+        if (usuario.refresh_token !== refreshtoken) {
+            return res.status(401).json({
+                message: "Invalid refresh token!",
+                type: "error",
+            });
+        }
+
+        const accessToken = createAccessToken(usuario.id);
+        const refreshToken = createRefreshToken(usuario.id);
+
+        await pool.query(
+            "UPDATE usuarios SET refresh_token = $1 WHERE id = $2",
+            [refreshToken, usuario.id]
+        );
+
+        sendRefreshToken(res, refreshToken);
+
+        return res.json({
+            message: "Atualizado com sucesso!",
+            type: "success",
+            accessToken,
+        });
+
     } catch (error) {
-      return res.status(500).json({
-        message: "Invalid refresh token!",
-        type: "error",
-      });
+        console.error("Erro no refresh_token:", error);
+        return res.status(500).json({
+            type: "error",
+            message: "Error ao atualizar token!",
+            error: error.message,
+        });
     }
-
-    if (!id)
-      return res.status(500).json({
-        message: "Invalid refresh token! 🤔",
-        type: "error",
-      });
-
-    const usuario = await usuario.findById(id);
-    if (!usuario)
-      return res.status(500).json({
-        message: "usuario doesn't exist! 😢",
-        type: "error",
-      });
-    if (usuario.refreshtoken !== refreshtoken)
-      return res.status(500).json({
-        message: "Invalid refresh token! 🤔",
-        type: "error",
-      });
-    const accessToken = createAccessToken(usuario._id);
-    const refreshToken = createRefreshToken(usuario._id);
-    usuario.refreshtoken = refreshToken;
-    sendRefreshToken(res, refreshToken);
-    return res.json({
-      message: "Refreshed successfully! 🤗",
-      type: "success",
-      accessToken,
-    });
-  } catch (error) {
-    res.status(500).json({
-      type: "error",
-      message: "Error refreshing token!",
-      error,
-    });
-  }
 });
+
+const { authMiddleware } = require("../utils/protected");
+
+router.get(
+    "/protected",
+    authMiddleware,
+    async (req, res) => {
+        return res.json({
+            message: "Você está logado!",
+            type: "success",
+            usuario: req.usuario,
+        });
+    }
+);
 
 module.exports = router;
-
-const { protected } = require("../utils/protected");
-router.get("/protected", protected, async (req, res) => {
-  try {
-    if (req.usuario)
-      return res.json({
-        message: "You are logged in! 🤗",
-        type: "success",
-        usuario: req.usuario,
-      });
-    return res.status(500).json({
-      message: "You are not logged in! 😢",
-      type: "error",
-    });
-  } catch (error) {
-    res.status(500).json({
-      type: "error",
-      message: "Error getting protected route!",
-      error,
-    });
-  }
-});
