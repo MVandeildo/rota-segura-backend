@@ -1,7 +1,9 @@
-const express = require('express');
+require("dotenv").config();
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
+const express = require("express");
+const cookieParser = require("cookie-parser");
 
 const healthRoutes = require('./routes/health.routes');
 const usuarioRoutes = require('./routes/usuarioRoutes');
@@ -14,13 +16,9 @@ const motoristaRoutes = require('./routes/motoristaRoutes');
 
 const { notFoundHandler, errorHandler } = require('./middlewares/error-handler');
 
+const authRouter = require("./routes/auth");
+
 const app = express();
-
-app.use(helmet());
-app.use(cors());
-app.use(express.json());
-app.use(morgan('dev'));
-
 app.get('/', (req, res) => {
     res.json({
         name: 'RotaSegura API',
@@ -28,8 +26,11 @@ app.get('/', (req, res) => {
     });
 });
 
-app.use('/api/v1/health', healthRoutes);
+app.use(express.json());
+app.use(express.urlencoded({ extended: false }));
+app.use(cookieParser());
 
+app.use("/api/auth", authRouter);
 app.use('/api/usuarios', usuarioRoutes);
 app.use('/api/gestores', gestorRoutes);
 app.use('/api/veiculos', veiculoRoutes);
