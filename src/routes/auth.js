@@ -1,9 +1,14 @@
 const express = require("express");
 const router = express.Router();
 
-const { hash, compare } = require("bcryptjs");
+const { randomBytes, createHash } = require("crypto");
+const { hash, compare } = require("bcrypt");
 
 const pool = require("../config/database");
+const {
+    createPasswordResetUrl,
+    sendPasswordResetEmail,
+} = require("../utils/email");
 
 const {
     createAccessToken,
@@ -125,6 +130,113 @@ router.post("/signin", async (req, res) => {
             type: "error",
             message: "Erro ao fazer login!",
             error: error.message,
+        });
+    }
+});
+
+router.post("/request-password-reset", async (req, res) => {
+    try {
+        const email = typeof req.body.email === "string"
+            ? req.body.email.trim().toLowerCase()
+            : "";
+
+        if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+            return res.status(400).json({
+                message: "Informe um e-mail válido.",
+                type: "error",
+            });
+        }
+
+        const resultado = await pool.query(
+            `SELECT id, email
+             FROM usuarios
+             WHERE LOWER(email) = $1`,
+            [email]
+        );
+
+        if (resultado.rows.length > 0) {
+            const usuario = resultado.rows[0];
+            const token = randomBytes(32).toString("hex");
+            const tokenHash = createHash("sha256").update(token).digest("hex");
+
+            await pool.query(
+                `INSERT INTO password_reset_tokens (usuario_id, token_hash, expires_at)
+                 VALUES ($1, $2, NOW() + INTERVAL '1 hour')
+                 ON CONFLICT (usuario_id)
+                 DO UPDATE SET token_hash = EXCLUDED.token_hash,
+                               expires_at = EXCLUDED.expires_at`,
+                [usuario.id, tokenHash]
+            );
+
+            await sendPasswordResetEmail(
+                usuario.email,
+                createPasswordResetUrl(usuario.id, token)
+            );
+        }
+
+        return res.json({
+            message: "Se o e-mail estiver cadastrado, você receberá instruções para redefinir sua senha.",
+            type: "success",
+        });
+    } catch (error) {
+        console.error("Erro ao solicitar redefinição de senha:", error);
+        return res.status(500).json({
+            message: "Não foi possível solicitar a redefinição de senha.",
+            type: "error",
+        });
+    }
+});
+
+router.post("/reset-password", async (req, res) => {
+    try {
+        const { id, token, password } = req.body;
+
+        if (!/^\d+$/.test(String(id || "")) ||
+            typeof token !== "string" ||
+            !/^[a-f0-9]{64}$/.test(token) ||
+            typeof password !== "string" ||
+            password.length < 8 ||
+            Buffer.byteLength(password, "utf8") > 72) {
+            return res.status(400).json({
+                message: "Informe um token válido e uma senha entre 8 caracteres e 72 bytes.",
+                type: "error",
+            });
+        }
+
+        const tokenHash = createHash("sha256").update(token).digest("hex");
+        const passwordHash = await hash(password, 10);
+        const resultado = await pool.query(
+            `WITH token_utilizado AS (
+                DELETE FROM password_reset_tokens
+                WHERE usuario_id = $1
+                  AND token_hash = $2
+                  AND expires_at > NOW()
+                RETURNING usuario_id
+             )
+             UPDATE usuarios AS usuario
+             SET password = $3, refresh_token = NULL
+             FROM token_utilizado
+             WHERE usuario.id = token_utilizado.usuario_id
+             RETURNING usuario.id`,
+            [id, tokenHash, passwordHash]
+        );
+
+        if (resultado.rows.length === 0) {
+            return res.status(400).json({
+                message: "Token inválido ou expirado.",
+                type: "error",
+            });
+        }
+
+        return res.json({
+            message: "Senha redefinida com sucesso.",
+            type: "success",
+        });
+    } catch (error) {
+        console.error("Erro ao redefinir senha:", error);
+        return res.status(500).json({
+            message: "Não foi possível redefinir a senha.",
+            type: "error",
         });
     }
 });

@@ -45,6 +45,13 @@ A API ficará disponível em `http://localhost:3000`.
 - `GET|POST|PUT|DELETE /api/veiculos`
 - `GET|POST|PUT|DELETE /api/rotas`
 
+## Redefinição de senha
+
+Antes de usar o fluxo, aplique `database/migrations/20261005_password_reset_tokens.sql` e configure as variáveis SMTP e `CLIENT_URL` no `.env`.
+
+- `POST /api/auth/request-password-reset` com `{ "email": "usuario@example.com" }` envia um link quando o endereço está cadastrado. A resposta não revela se o e-mail existe.
+- `POST /api/auth/reset-password` com `{ "id": 1, "token": "...", "password": "nova-senha" }` define uma senha com no mínimo 8 caracteres. O token expira em 1 hora e só pode ser usado uma vez.
+
 ## Estrutura
 
 ```text
