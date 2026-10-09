@@ -11,9 +11,16 @@ const axios = require("axios");
  * @returns {Promise<{duracaoMinutos: number, distanciaKm: string, etaTexto: string}>}
  */
 async function calcularETA(origemLat, origemLng, destinoLat, destinoLng) {
-    try {
-        if (!origemLat || !origemLng || !destinoLat || !destinoLng) {
-            throw new Error("Coordenadas de origem e destino são obrigatórias.");
+        try {
+            if (
+            origemLat == null || origemLng == null ||
+            destinoLat == null || destinoLng == null ||
+            !Number.isFinite(Number(origemLat)) ||
+            !Number.isFinite(Number(origemLng)) ||
+            !Number.isFinite(Number(destinoLat)) ||
+            !Number.isFinite(Number(destinoLng))
+        ) {
+            throw new Error("Coordenadas de origem e destino são inválidas.");
         }
 
         // OSRM utiliza o formato: {longitude},{latitude};{longitude},{latitude}
