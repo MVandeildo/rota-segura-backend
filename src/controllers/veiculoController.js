@@ -17,7 +17,11 @@ exports.criar = async (req, res) => {
         );
         return res.status(201).json(result.rows[0]);
     } catch (error) {
-        return res.status(500).json({ erro: "Erro ao cadastrar veículo." });
+        console.error("Erro ao cadastrar veículo:", error);
+        return res.status(500).json({
+        erro: "Erro ao cadastrar veículo.",
+        detalhe: error.message
+    });
     }
 };
 
@@ -129,9 +133,17 @@ exports.atualizarLocalizacao = async (req, res) => {
     const { id } = req.params;
     const { latitude, longitude, velocidade, heading, rota_id, destino_lat, destino_lng } = req.body;
 
-    if (!latitude || !longitude) {
-        return res.status(400).json({ erro: "Latitude e longitude são obrigatórias." });
-    }
+    if (
+    latitude == null || longitude == null ||
+    !Number.isFinite(Number(latitude)) ||
+    !Number.isFinite(Number(longitude)) ||
+    Number(latitude) < -90 || Number(latitude) > 90 ||
+    Number(longitude) < -180 || Number(longitude) > 180
+    ) {
+    return res.status(400).json({
+        erro: "Latitude e longitude inválidas."
+    });
+}
 
     try {
         const veiculoAtualizado = await VeiculoModel.updateLocalizacao(id, {
