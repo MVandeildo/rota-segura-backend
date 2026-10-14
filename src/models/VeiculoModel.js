@@ -16,31 +16,21 @@ class VeiculoModel {
         return result.rows[0];
     }
 
-    static async create({ placa, modelo, capacidade, status = 'ATIVO', latitude = null, longitude = null, ultima_atualizacao = null, velocidade = null, heading = null }) {
+    static async create({ placa, modelo, capacidade, status = 'ATIVO' }) {
         const result = await db.query(
-            `INSERT INTO veiculos (placa, modelo, capacidade, status, latitude, longitude, ultima_atualizacao, velocidade, heading) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
-            [placa, modelo, capacidade, status, latitude, longitude, ultima_atualizacao, velocidade, heading]
+            `INSERT INTO veiculos (placa, modelo, capacidade, status) 
+             VALUES ($1, $2, $3, $4) RETURNING *`,
+            [placa, modelo, capacidade, status]
         );
         return result.rows[0];
     }
 
-    static async update(id, { placa, modelo, capacidade, status, latitude, longitude, ultima_atualizacao, velocidade, heading }) {
+    static async update(id, { placa, modelo, capacidade, status }) {
         const result = await db.query(
             `UPDATE veiculos 
-       SET placa = $1, modelo = $2, capacidade = $3, status = $4, latitude = $5, longitude = $6, ultima_atualizacao = $7, velocidade = $8, heading = $9 
-       WHERE id = $10 RETURNING *`,
-            [placa, modelo, capacidade, status, latitude, longitude, ultima_atualizacao, velocidade, heading, id]
-        );
-        return result.rows[0];
-    }
-
-    static async updateLocalizacao(id, { latitude, longitude, velocidade = null, heading = null }) {
-        const result = await db.query(
-            `UPDATE veiculos 
-       SET latitude = $1, longitude = $2, velocidade = $3, heading = $4, ultima_atualizacao = NOW() 
-       WHERE id = $5 RETURNING *`,
-            [latitude, longitude, velocidade, heading, id]
+             SET placa = $1, modelo = $2, capacidade = $3, status = $4 
+             WHERE id = $5 RETURNING *`,
+            [placa, modelo, capacidade, status, id]
         );
         return result.rows[0];
     }
@@ -49,7 +39,6 @@ class VeiculoModel {
         const result = await db.query('DELETE FROM veiculos WHERE id = $1 RETURNING id', [id]);
         return result.rows[0];
     }
-
 }
 
 module.exports = VeiculoModel;
