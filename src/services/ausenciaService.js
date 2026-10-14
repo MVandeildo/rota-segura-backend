@@ -1,4 +1,3 @@
-
 const AusenciaModel = require('../models/AusenciaModel');
 const AlunoModel = require('../models/AlunoModel');
 
@@ -10,11 +9,8 @@ const criarErro = (mensagem, statusCode = 400) => {
 
 // Valida e normaliza uma data no formato AAAA-MM-DD.
 const normalizarDataAusencia = (data) => {
-    if (typeof data !== 'string' ||
-        !/^\d{4}-\d{2}-\d{2}$/.test(data)) {
-        throw criarErro(
-            'Data de ausência inválida. Use o formato AAAA-MM-DD.'
-        );
+    if (typeof data !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(data)) {
+        throw criarErro('Data de ausência inválida. Use o formato AAAA-MM-DD.');
     }
 
     const dataValidada = new Date(`${data}T00:00:00.000Z`);
@@ -23,9 +19,7 @@ const normalizarDataAusencia = (data) => {
         Number.isNaN(dataValidada.getTime()) ||
         dataValidada.toISOString().slice(0, 10) !== data
     ) {
-        throw criarErro(
-            'Data de ausência inválida. Use o formato AAAA-MM-DD.'
-        );
+        throw criarErro('Data de ausência inválida. Use o formato AAAA-MM-DD.');
     }
 
     const hoje = new Date();
@@ -36,9 +30,7 @@ const normalizarDataAusencia = (data) => {
     ].join('-');
 
     if (data < hojeFormatado) {
-        throw criarErro(
-            'Não é permitido registrar ausência para uma data passada.'
-        );
+        throw criarErro('Não é permitido registrar ausência para uma data passada.');
     }
 
     return data;
@@ -77,8 +69,10 @@ const registrarAusencia = async ({
 
     const aluno = await AlunoModel.findById(alunoId);
 
-    if (!aluno || aluno.ativo !== true) {
-        throw criarErro('Aluno não encontrado ou inativo.', 404);
+    // Ajuste opcional: se a sua tabela de alunos não possuir a coluna 'ativo', 
+    // certifique-se de remover a checagem 'aluno.ativo !== true' para evitar erros.
+    if (!aluno) {
+        throw criarErro('Aluno não encontrado.', 404);
     }
 
     if (
@@ -104,8 +98,10 @@ const registrarAusencia = async ({
         );
     }
 
+    // CORREÇÃO: Passando também o responsavel_id para satisfazer a restrição NOT NULL da tabela
     return AusenciaModel.create({
         aluno_id: alunoId,
+        responsavel_id: responsavelId,
         data_ausencia: dataNormalizada
     });
 };
@@ -113,7 +109,6 @@ const registrarAusencia = async ({
 // Lista as ausências de uma data.
 const listarAusenciasPorData = async (data) => {
     const dataNormalizada = normalizarDataAusencia(data);
-
     return AusenciaModel.findByDate(dataNormalizada);
 };
 
@@ -128,8 +123,8 @@ const listarAusenciasPorAluno = async (aluno_id, responsavel_id) => {
 
     const aluno = await AlunoModel.findById(alunoId);
 
-    if (!aluno || aluno.ativo !== true) {
-        throw criarErro('Aluno não encontrado ou inativo.', 404);
+    if (!aluno) {
+        throw criarErro('Aluno não encontrado.', 404);
     }
 
     if (Number(aluno.responsavel_id) !== responsavelId) {
@@ -172,7 +167,7 @@ const cancelarAusencia = async (id, responsavel_id) => {
 };
 
 module.exports = {
-    registrarAusencia,
+    criarAusencia: registrarAusencia,
     listarAusenciasPorData,
     listarAusenciasPorAluno,
     cancelarAusencia
