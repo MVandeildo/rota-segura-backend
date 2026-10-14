@@ -1,15 +1,14 @@
-
 const ausenciaService = require('../services/ausenciaService');
 
 const criarAusencia = async (req, res) => {
     try {
         const { aluno_id, data_ausencia } = req.body;
         
-        // O ID do responsável vem do token JWT decodificado pelo middleware de autenticação!
-        // (Confirme se no seu middleware você guarda como req.userId ou req.user.id)
-        const responsavel_id = req.userId; 
+        // Padronizado de acordo com os outros métodos (ajuste conforme o seu middleware)
+        const responsavel_id = req.usuario?.id || req.userId; 
 
-        const novaAusencia = await criarAusencia({
+        // CORRIGIDO: Chamando corretamente o service ao invés da função local
+        const novaAusencia = await ausenciaService.criarAusencia({
             aluno_id,
             data_ausencia,
             responsavel_id
@@ -26,7 +25,6 @@ const criarAusencia = async (req, res) => {
     }
 };
 
-
 const listarAusenciasPorData = async (req, res) => {
     try {
         const { data } = req.query;
@@ -37,8 +35,7 @@ const listarAusenciasPorData = async (req, res) => {
             });
         }
 
-        const ausencias =
-            await ausenciaService.listarAusenciasPorData(data);
+        const ausencias = await ausenciaService.listarAusenciasPorData(data);
 
         return res.status(200).json(ausencias);
 
@@ -49,10 +46,9 @@ const listarAusenciasPorData = async (req, res) => {
     }
 };
 
-
 const listarAusenciasPorAluno = async (req, res) => {
     try {
-        const responsavel_id = req.usuario?.id;
+        const responsavel_id = req.usuario?.id || req.userId;
 
         if (!responsavel_id) {
             return res.status(401).json({
@@ -60,11 +56,10 @@ const listarAusenciasPorAluno = async (req, res) => {
             });
         }
 
-        const ausencias =
-            await ausenciaService.listarAusenciasPorAluno(
-                req.params.alunoId,
-                responsavel_id
-            );
+        const ausencias = await ausenciaService.listarAusenciasPorAluno(
+            req.params.alunoId,
+            responsavel_id
+        );
 
         return res.status(200).json(ausencias);
 
@@ -75,10 +70,9 @@ const listarAusenciasPorAluno = async (req, res) => {
     }
 };
 
-
 const cancelarAusencia = async (req, res) => {
     try {
-        const responsavel_id = req.usuario?.id;
+        const responsavel_id = req.usuario?.id || req.userId;
 
         if (!responsavel_id) {
             return res.status(401).json({
@@ -102,7 +96,6 @@ const cancelarAusencia = async (req, res) => {
         });
     }
 };
-
 
 module.exports = {
     criarAusencia,
