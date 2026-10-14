@@ -3,15 +3,16 @@ const db = require('../config/database');
 
 class AusenciaModel {
     // Registra a ausência de um aluno em uma data específica.
-    static async create({ aluno_id, data_ausencia }) {
+    static async create({ aluno_id, responsavel_id, data_ausencia }) {
         const result = await db.query(
             `INSERT INTO ausencias_alunos (
                 aluno_id,
+                responsavel_id,
                 data_ausencia
             )
-            VALUES ($1, $2)
+            VALUES ($1, $2, $3)
             RETURNING *`,
-            [aluno_id, data_ausencia]
+            [aluno_id, responsavel_id, data_ausencia]
         );
 
         return result.rows[0];
