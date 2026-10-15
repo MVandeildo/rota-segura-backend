@@ -19,7 +19,7 @@ class VeiculoModel {
     static async create({ placa, modelo, capacidade, status = 'ATIVO' }) {
         const result = await db.query(
             `INSERT INTO veiculos (placa, modelo, capacidade, status) 
-       VALUES ($1, $2, $3, $4) RETURNING *`,
+             VALUES ($1, $2, $3, $4) RETURNING *`,
             [placa, modelo, capacidade, status]
         );
         return result.rows[0];
@@ -28,8 +28,8 @@ class VeiculoModel {
     static async update(id, { placa, modelo, capacidade, status }) {
         const result = await db.query(
             `UPDATE veiculos 
-       SET placa = $1, modelo = $2, capacidade = $3, status = $4 
-       WHERE id = $5 RETURNING *`,
+             SET placa = $1, modelo = $2, capacidade = $3, status = $4 
+             WHERE id = $5 RETURNING *`,
             [placa, modelo, capacidade, status, id]
         );
         return result.rows[0];
@@ -39,7 +39,6 @@ class VeiculoModel {
         const result = await db.query('DELETE FROM veiculos WHERE id = $1 RETURNING id', [id]);
         return result.rows[0];
     }
-
 }
 
 module.exports = VeiculoModel;
