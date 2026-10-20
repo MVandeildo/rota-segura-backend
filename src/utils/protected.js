@@ -28,7 +28,7 @@ const authMiddleware = async (req, res, next) => {
         );
 
         const resultado = await pool.query(
-            `SELECT id, email, verified
+            `SELECT id, email, verified, perfil
              FROM usuarios
              WHERE id = $1`,
             [decoded.id]
@@ -53,6 +53,18 @@ const authMiddleware = async (req, res, next) => {
     }
 };
 
+const requirePerfil = (...perfis) => (req, res, next) => {
+    if (!req.usuario || !perfis.includes(req.usuario.perfil)) {
+        return res.status(403).json({
+            message: "Usuário sem permissão para esta operação.",
+            type: "error",
+        });
+    }
+
+    return next();
+};
+
 module.exports = {
     authMiddleware,
+    requirePerfil,
 };
