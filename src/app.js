@@ -33,6 +33,7 @@ app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 
 app.use("/api/auth", authRouter);
+app.use('/api/v1/health', healthRoutes);
 app.use('/api/usuarios', usuarioRoutes);
 app.use('/api/gestores', gestorRoutes);
 app.use('/api/veiculos', veiculoRoutes);
