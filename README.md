@@ -37,6 +37,16 @@ npm start
 
 A API ficará disponível em `http://localhost:3000`.
 
+## Testes
+
+Execute os testes automatizados dos endpoints básicos:
+
+```bash
+npm test
+```
+
+Os testes iniciam a aplicação em uma porta local temporária e não precisam de banco de dados nem de serviços externos.
+
 ## Endpoint inicial
 
 - `GET /api/v1/health`
