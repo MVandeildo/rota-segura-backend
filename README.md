@@ -45,6 +45,15 @@ A API ficará disponível em `http://localhost:3000`.
 - `GET|POST|PUT|DELETE /api/veiculos`
 - `GET|POST|PUT|DELETE /api/rotas`
 
+## Início, finalização e rastreamento de rotas
+
+Aplique `database/migrations/20261026_status_e_ciclo_de_rotas.sql` antes de usar o ciclo de percurso. Uma rota nova começa com status `Pendente`.
+
+- `PATCH /api/rotas/:id/iniciar` altera o status para `Em Trânsito` e habilita o recebimento de coordenadas.
+- `PATCH /api/rotas/:id/localizacao` recebe os pontos enviados pelo GPS do aplicativo. Envie `{ "latitude": -23.55, "longitude": -46.63, "velocidade": 30, "heading": 90 }` periodicamente enquanto a rota estiver em trânsito. Os pontos são persistidos e emitidos para a sala Socket.IO `rota_<id>` como `posicao_atualizada`.
+- `PATCH /api/rotas/:id/finalizar` altera o status para `Finalizada`; novas atualizações de localização são recusadas.
+- Iniciar é permitido somente para rotas `Pendente`, e finalizar somente para rotas `Em Trânsito`. Transições inválidas respondem `409 Conflict`.
+
 ## Redefinição de senha
 
 Antes de usar o fluxo, aplique `database/migrations/20261005_password_reset_tokens.sql` e configure as variáveis SMTP e `CLIENT_URL` no `.env`.
