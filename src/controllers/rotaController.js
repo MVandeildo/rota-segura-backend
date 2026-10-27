@@ -82,6 +82,51 @@ exports.deletar = async (req, res) => {
     }
 };
 
+const alterarStatus = async (req, res, statusAtual, novoStatus, mensagem) => {
+    const { id } = req.params;
+
+    try {
+        const rotaAtualizada = await RotaModel.updateStatus(id, novoStatus, statusAtual);
+
+        if (!rotaAtualizada) {
+            const rota = await RotaModel.findById(id);
+            if (!rota) {
+                return res.status(404).json({ erro: 'Rota não encontrada.' });
+            }
+            return res.status(409).json({
+                erro: `Não é possível alterar uma rota com status "${rota.status}" para "${novoStatus}".`
+            });
+        }
+
+        const io = req.app.get("io");
+        if (io) {
+            io.to(`rota_${id}`).emit("status_rota_atualizado", {
+                rota_id: rotaAtualizada.id,
+                status: rotaAtualizada.status,
+                iniciada_em: rotaAtualizada.iniciada_em,
+                finalizada_em: rotaAtualizada.finalizada_em
+            });
+        }
+
+        return res.status(200).json({
+            mensagem,
+            rota: rotaAtualizada,
+            transmissao_localizacao_ativa: novoStatus === 'Em Trânsito'
+        });
+    } catch (error) {
+        console.error(`Erro ao alterar status da rota para "${novoStatus}":`, error);
+        return res.status(500).json({ erro: 'Erro interno ao atualizar status da rota.' });
+    }
+};
+
+exports.iniciar = async (req, res) => {
+    return alterarStatus(req, res, 'Pendente', 'Em Trânsito', 'Rota iniciada com sucesso.');
+};
+
+exports.finalizar = async (req, res) => {
+    return alterarStatus(req, res, 'Em Trânsito', 'Finalizada', 'Rota finalizada com sucesso.');
+};
+
 // Obter Posição Atual e ETA para a Rota
 exports.obterPosicaoAtual = async (req, res) => {
     const { id } = req.params;
@@ -93,12 +138,12 @@ exports.obterPosicaoAtual = async (req, res) => {
             return res.status(404).json({ erro: 'Rota não encontrada.' });
         }
 
-        if (!rota.latitude || !rota.longitude) {
+        if (rota.latitude == null || rota.longitude == null) {
             return res.status(404).json({ erro: 'Nenhuma localização registrada para esta rota.' });
         }
 
         let etaInfo = { duracaoMinutos: null, distanciaKm: null, etaTexto: "Indisponível" };
-        if (rota.destino_lat && rota.destino_lng) {
+        if (rota.destino_lat != null && rota.destino_lng != null) {
             etaInfo = await calcularETA(rota.latitude, rota.longitude, rota.destino_lat, rota.destino_lng);
         }
 
@@ -107,8 +152,8 @@ exports.obterPosicaoAtual = async (req, res) => {
             veiculo_id: rota.veiculo_id,
             latitude: Number(rota.latitude),
             longitude: Number(rota.longitude),
-            velocidade: rota.velocidade || null,
-            heading: rota.heading || null,
+            velocidade: rota.velocidade ?? null,
+            heading: rota.heading ?? null,
             eta: etaInfo.etaTexto,
             duracaoMinutos: etaInfo.duracaoMinutos,
             distanciaKm: etaInfo.distanciaKm,
@@ -146,11 +191,17 @@ exports.atualizarLocalizacao = async (req, res) => {
         });
 
         if (!rotaAtualizada) {
-            return res.status(404).json({ erro: "Rota não encontrada." });
+            const rota = await RotaModel.findById(id);
+            if (!rota) {
+                return res.status(404).json({ erro: "Rota não encontrada." });
+            }
+            return res.status(409).json({
+                erro: "A localização só pode ser atualizada enquanto a rota estiver Em Trânsito."
+            });
         }
 
         let etaInfo = { duracaoMinutos: null, distanciaKm: null, etaTexto: "Indisponível" };
-        if (rotaAtualizada.destino_lat && rotaAtualizada.destino_lng) {
+        if (rotaAtualizada.destino_lat != null && rotaAtualizada.destino_lng != null) {
             etaInfo = await calcularETA(latitude, longitude, rotaAtualizada.destino_lat, rotaAtualizada.destino_lng);
         }
 
@@ -159,8 +210,8 @@ exports.atualizarLocalizacao = async (req, res) => {
             veiculo_id: rotaAtualizada.veiculo_id,
             latitude: Number(latitude),
             longitude: Number(longitude),
-            velocidade: velocidade || null,
-            heading: heading || null,
+            velocidade: velocidade ?? null,
+            heading: heading ?? null,
             eta: etaInfo.etaTexto,
             duracaoMinutos: etaInfo.duracaoMinutos,
             distanciaKm: etaInfo.distanciaKm,

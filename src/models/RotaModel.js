@@ -34,8 +34,21 @@ class RotaModel {
         const result = await db.query(
             `UPDATE rotas 
              SET latitude = $1, longitude = $2, velocidade = $3, heading = $4, ultima_atualizacao = NOW() 
-             WHERE id = $5 RETURNING *`,
+             WHERE id = $5 AND status = 'Em Trânsito' RETURNING *`,
             [latitude, longitude, velocidade, heading, rotaId]
+        );
+        return result.rows[0];
+    }
+
+    static async updateStatus(rotaId, status, statusAtual) {
+        const result = await db.query(
+            `UPDATE rotas
+             SET status = $1,
+                 iniciada_em = CASE WHEN $1 = 'Em Trânsito' THEN NOW() ELSE iniciada_em END,
+                 finalizada_em = CASE WHEN $1 = 'Finalizada' THEN NOW() ELSE finalizada_em END
+             WHERE id = $2 AND status = $3
+             RETURNING *`,
+            [status, rotaId, statusAtual]
         );
         return result.rows[0];
     }

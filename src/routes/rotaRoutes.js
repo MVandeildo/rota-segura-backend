@@ -9,5 +9,7 @@ router.put('/:id', rotaController.atualizar);
 router.delete('/:id', rotaController.deletar);
 router.get('/:id/posicao-atual', rotaController.obterPosicaoAtual);
 router.patch('/:id/localizacao', rotaController.atualizarLocalizacao);
+router.patch('/:id/iniciar', rotaController.iniciar);
+router.patch('/:id/finalizar', rotaController.finalizar);
 
 module.exports = router;
