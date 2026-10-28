@@ -58,7 +58,8 @@ Aplique `database/migrations/20261016_presencas_e_dispositivos_fcm.sql` antes de
 
 - `POST /api/notificacoes/dispositivos` (perfil `RESPONSAVEL`) registra/atualiza o token do dispositivo autenticado com `{ "token": "<token FCM>" }`.
 - `DELETE /api/notificacoes/dispositivos` (perfil `RESPONSAVEL`) remove o token com o mesmo formato de corpo.
-- `POST /api/presencas` (perfil `MOTORISTA`) registra embarque ou desembarque e tenta enviar a notificação ao responsável imediatamente. Exemplo: `{ "aluno_id": 1, "tipo": "EMBARQUE", "latitude": -23.55, "longitude": -46.63 }`. As coordenadas são opcionais, mas devem ser enviadas juntas.
+- `GET /api/presencas/rota-do-dia` (perfil `MOTORISTA`) lista os alunos ativos das rotas vinculadas ao motorista e o status de presença do dia (`PENDENTE`, `EMBARCADO` ou `DESEMBARCADO`). Aceita `?data=AAAA-MM-DD`; sem o parâmetro, usa a data atual do banco.
+- `POST /api/presencas` (perfil `MOTORISTA`) registra embarque ou desembarque, com horário gerado pelo banco no momento da gravação, coordenadas GPS obrigatórias e notificação imediata ao responsável quando disponível. Exemplo: `{ "aluno_id": 1, "tipo": "EMBARQUE", "latitude": -23.55, "longitude": -46.63 }`. O status diário corresponde ao evento mais recente do aluno naquela rota.
 
 A resposta do registro informa `notificacao.status` como `enviada`, `parcial`, `falha`, `sem_dispositivo` ou `sem_responsavel`. Um erro no FCM é registrado nos logs sem descartar a presença já gravada.
 
