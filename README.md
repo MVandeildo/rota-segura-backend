@@ -62,6 +62,13 @@ Aplique `database/migrations/20261016_presencas_e_dispositivos_fcm.sql` antes de
 
 A resposta do registro informa `notificacao.status` como `enviada`, `parcial`, `falha`, `sem_dispositivo` ou `sem_responsavel`. Um erro no FCM é registrado nos logs sem descartar a presença já gravada.
 
+## Relatórios de auditoria
+
+- `GET /api/relatorios/auditoria` (perfil `GESTOR`) lista os registros de embarque e desembarque com dados do aluno, da rota e do motorista.
+- Filtros opcionais: `data_inicio` e `data_fim` no formato `YYYY-MM-DD` (inclusivos), `rota_id` e `motorista_id`.
+- A resposta padrão é JSON. Use `formato=csv` para baixar um CSV legível, compatível com planilhas.
+- Exemplo: `GET /api/relatorios/auditoria?data_inicio=2026-10-01&data_fim=2026-10-31&rota_id=2&formato=csv`
+
 ## Estrutura
 
 ```text
