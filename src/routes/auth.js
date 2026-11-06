@@ -4,7 +4,6 @@ const router = express.Router();
 const { hash, compare } = require("bcryptjs");
 
 const pool = require("../config/database");
-const transporter = require("../config/enviar_email");
 const enviarEmailRecuperacao = require("../config/enviar_email");
 const bcrypt = require('bcrypt');
 const {
@@ -16,7 +15,8 @@ const {
 
 router.post("/signup", async (req, res) => {
     try {
-        const { nome, email, password } = req.body;
+        // Recebe também o 'perfil' enviado do front-end
+        const { nome, email, password, perfil } = req.body;
 
         if (!email || !password) {
             return res.status(400).json({
@@ -38,14 +38,15 @@ router.post("/signup", async (req, res) => {
         }
 
         const passwordHash = await hash(password, 10);
+        
+        // Define o perfil recebido ou usa 'responsavel' apenas se vier vazio
+        const perfilFinal = perfil ? perfil.trim().toLowerCase() : 'responsavel';
 
-        // Insere o nome, email e a senha criptografada na tabela 'usuarios'
-        // (Certifique-se de que a coluna 'nome' existe na sua tabela do PostgreSQL)
         const novoUsuario = await pool.query(
-            `INSERT INTO usuarios (nome, email, password)
-             VALUES ($1, $2, $3)
-             RETURNING id, nome, email, verified`,
-            [nome, email, passwordHash]
+            `INSERT INTO usuarios (nome, email, password, perfil)
+             VALUES ($1, $2, $3, $4)
+             RETURNING id, nome, email, verified, perfil`,
+            [nome, email, passwordHash, perfilFinal]
         );
 
         return res.status(201).json({
@@ -56,7 +57,6 @@ router.post("/signup", async (req, res) => {
 
     } catch (error) {
         console.error(error);
-
         return res.status(500).json({
             type: "error",
             message: "Erro ao criar usuário!",
@@ -67,7 +67,7 @@ router.post("/signup", async (req, res) => {
 
 router.post("/signin", async (req, res) => {
     try {
-        const { email, password } = req.body;
+        const { email, password, perfil } = req.body; // 'perfil' enviado pelo front-end ao tentar logar
 
         if (!email || !password) {
             return res.status(400).json({
@@ -76,8 +76,9 @@ router.post("/signin", async (req, res) => {
             });
         }
 
+        // Buscamos também o 'perfil' cadastrado no banco de dados
         const resultado = await pool.query(
-            `SELECT id, email, password, verified
+            `SELECT id, nome, email, password, verified, perfil
              FROM usuarios
              WHERE email = $1`,
             [email]
@@ -104,6 +105,15 @@ router.post("/signin", async (req, res) => {
             });
         }
 
+        // ** VALIDAÇÃO ESTRITA DE PERFIL **
+        // Se o front-end enviou um perfil e ele é diferente do cadastrado no banco, negamos o acesso
+        if (perfil && usuario.perfil && usuario.perfil !== perfil) {
+            return res.status(403).json({
+                message: `Acesso negado. Esta conta está cadastrada como '${usuario.perfil}', não sendo permitido o acesso como '${perfil}'.`,
+                type: "error",
+            });
+        }
+
         const accessToken = createAccessToken(usuario.id);
         const refreshToken = createRefreshToken(usuario.id);
 
@@ -116,11 +126,17 @@ router.post("/signin", async (req, res) => {
 
         sendRefreshToken(res, refreshToken);
 
-        sendAccessToken(
-            req,
-            res,
-            accessToken
-        );
+        return res.json({
+            accesstoken: accessToken,
+            message: "Login com sucesso",
+            type: "success",
+            user: {
+                id: usuario.id,
+                nome: usuario.nome,
+                email: usuario.email,
+                perfil: usuario.perfil // Retornamos o perfil real do banco para o front-end
+            }
+        });
 
     } catch (error) {
         console.error(error);
@@ -173,7 +189,6 @@ router.post("/refresh_token", async (req, res) => {
             });
         }
 
-        // Busca o utilizador no PostgreSQL
         const resultado = await pool.query(
             "SELECT * FROM usuarios WHERE id = $1",
             [id]
@@ -235,9 +250,8 @@ router.get(
     }
 );
 
-const crypto = require("crypto"); // Já nativo no Node.js para gerar tokens seguros
+const crypto = require("crypto");
 
-// Rota de Solicitação de Recuperação de Senha
 router.post("/forgot-password", async (req, res) => {
     try {
         const { email } = req.body;
@@ -255,7 +269,6 @@ router.post("/forgot-password", async (req, res) => {
         );
 
         if (resultado.rows.length === 0) {
-            // Por segurança, retornamos sucesso genérico para não expor se o e-mail existe
             return res.status(200).json({
                 message: "Se o e-mail estiver cadastrado, você receberá as instruções em breve.",
                 type: "success",
@@ -264,11 +277,9 @@ router.post("/forgot-password", async (req, res) => {
 
         const usuario = resultado.rows[0];
 
-        // Gera o token seguro e a expiração (1 hora)
         const resetToken = crypto.randomBytes(32).toString("hex");
         const tokenExpiration = new Date(Date.now() + 3600000); 
 
-        // Salva no banco de dados
         await pool.query(
             `UPDATE usuarios 
              SET reset_token = $1, reset_token_expires = $2 
@@ -276,10 +287,8 @@ router.post("/forgot-password", async (req, res) => {
             [resetToken, tokenExpiration, usuario.id]
         );
 
-        // Monta o link que será enviado para o front-end
         const linkRedefinicao = `http://localhost:5173/redefinir-senha?token=${resetToken}`;
 
-        // Dispara o e-mail utilizando a função auxiliar que criamos
         await enviarEmailRecuperacao(usuario.email, linkRedefinicao, usuario.nome);
 
         return res.status(200).json({
@@ -308,7 +317,6 @@ router.post("/reset-password", async (req, res) => {
             });
         }
 
-        // 1. Procura o usuário pelo token e verifica se ele ainda não expirou
         const resultado = await pool.query(
             `SELECT id FROM usuarios 
              WHERE reset_token = $1 AND reset_token_expires > NOW()`,
@@ -324,11 +332,9 @@ router.post("/reset-password", async (req, res) => {
 
         const usuario = resultado.rows[0];
 
-        // 2. Criptografa a nova senha com bcrypt
         const salt = await bcrypt.genSalt(10);
         const senhaHash = await bcrypt.hash(novaSenha, salt);
 
-        // 3. Atualiza a senha no banco e limpa os campos de token para não poderem ser reutilizados
         await pool.query(
             `UPDATE usuarios 
              SET password = $1, reset_token = NULL, reset_token_expires = NULL 
