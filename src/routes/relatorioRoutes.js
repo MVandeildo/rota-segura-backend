@@ -7,7 +7,7 @@ const router = express.Router();
 router.get(
     '/auditoria',
     authMiddleware,
-    requirePerfil('GESTOR'),
+    requirePerfil('administrador'),
     relatorioController.auditoria
 );
 
