@@ -1,5 +1,4 @@
 const { verify } = require("jsonwebtoken");
-
 const pool = require("../config/database");
 
 const authMiddleware = async (req, res, next) => {
@@ -54,7 +53,17 @@ const authMiddleware = async (req, res, next) => {
 };
 
 const requirePerfil = (...perfis) => (req, res, next) => {
-    if (!req.usuario || !perfis.includes(req.usuario.perfil)) {
+    if (!req.usuario || !req.usuario.perfil) {
+        return res.status(403).json({
+            message: "Usuário sem perfil definido.",
+            type: "error",
+        });
+    }
+
+    const perfilUsuario = req.usuario.perfil.toLowerCase();
+    const perfisPermitidos = perfis.map(p => p.toLowerCase());
+
+    if (!perfisPermitidos.includes(perfilUsuario)) {
         return res.status(403).json({
             message: "Usuário sem permissão para esta operação.",
             type: "error",
