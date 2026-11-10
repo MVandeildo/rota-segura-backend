@@ -1,7 +1,23 @@
 const db = require('../config/database');
 
 class RelatorioModel {
-    static async listarAuditoria(filtros) {
+    /**
+     * @param {number} responsavelId - ID do usuário responsável
+     * @returns {Promise<number[]>} Array com os IDs dos estudantes vinculados
+     */
+    static async buscarIdsAlunosPorResponsavel(responsavelId) {
+        const result = await db.query(
+            `SELECT aluno_id FROM responsavel_alunos WHERE responsavel_id = $1`,
+            [responsavelId]
+        );
+        return result.rows.map(row => row.aluno_id);
+    }
+
+    /**
+     * @param {Object} filtros - 
+     * @returns {Promise<Object[]>}
+     */
+    static async listarAuditoria(filtros = {}) {
         const condicoes = [];
         const parametros = [];
 
@@ -25,12 +41,26 @@ class RelatorioModel {
             condicoes.push(`p.motorista_id = $${parametros.length}`);
         }
 
+        if (filtros.alunoId) {
+            parametros.push(filtros.alunoId);
+            condicoes.push(`p.aluno_id = $${parametros.length}`);
+        }
+
+        if (filtros.alunosPermitidos && Array.isArray(filtros.alunosPermitidos)) {
+            if (filtros.alunosPermitidos.length === 0) {
+                condicoes.push(`1 = 0`); 
+            } else {
+                parametros.push(filtros.alunosPermitidos);
+                condicoes.push(`p.aluno_id = ANY($${parametros.length})`);
+            }
+        }
+
         const where = condicoes.length > 0
             ? `WHERE ${condicoes.join(' AND ')}`
             : '';
 
-        const result = await db.query(
-            `SELECT
+        const query = `
+            SELECT
                 p.id AS presenca_id,
                 p.registrado_em,
                 p.tipo,
@@ -42,15 +72,15 @@ class RelatorioModel {
                 m.nome AS motorista_nome,
                 p.latitude,
                 p.longitude
-             FROM presencas_alunos p
-             INNER JOIN alunos a ON a.id = p.aluno_id
-             INNER JOIN rotas r ON r.id = p.rota_id
-             INNER JOIN usuarios m ON m.id = p.motorista_id
-             ${where}
-             ORDER BY p.registrado_em DESC, p.id DESC`,
-            parametros
-        );
+            FROM historico_viagens p
+            INNER JOIN alunos a ON a.id = p.aluno_id
+            INNER JOIN rotas r ON r.id = p.rota_id
+            INNER JOIN usuarios m ON m.id = p.motorista_id
+            ${where}
+            ORDER BY p.registrado_em DESC, p.id DESC
+        `;
 
+        const result = await db.query(query, parametros);
         return result.rows;
     }
 }
