@@ -67,7 +67,8 @@ const gerarCsv = (registros) => {
 };
 
 exports.auditoria = async (req, res) => {
-    const { data_inicio, data_fim, rota_id, motorista_id, formato = 'json' } = req.query;
+    const { data_inicio, data_fim, rota_id, motorista_id, aluno_id, formato = 'json' } = req.query;
+    const usuarioLogado = req.usuario;
 
     if (data_inicio !== undefined && !dataValida(data_inicio)) {
         return res.status(400).json({
@@ -95,24 +96,48 @@ exports.auditoria = async (req, res) => {
         return res.status(400).json({ erro: 'motorista_id deve ser um inteiro positivo.' });
     }
 
+    if (aluno_id !== undefined && !idValido(aluno_id)) {
+        return res.status(400).json({ erro: 'aluno_id deve ser um inteiro positivo.' });
+    }
+
     if (!['json', 'csv'].includes(formato)) {
         return res.status(400).json({ erro: 'formato deve ser json ou csv.' });
     }
 
     try {
+        let alunosPermitidos = undefined;
+
+        // Regra de segurança para perfil RESPONSAVEL
+        if (usuarioLogado && usuarioLogado.perfil === 'RESPONSAVEL') {
+            alunosPermitidos = await RelatorioModel.buscarIdsAlunosPorResponsavel(usuarioLogado.id);
+            
+            // Se o responsável especificou um aluno, validamos se ele tem permissão
+            if (aluno_id) {
+                const idAlunoNum = Number(aluno_id);
+                if (!alunosPermitidos || !alunosPermitidos.includes(idAlunoNum)) {
+                    return res.status(403).json({
+                        erro: 'Acesso negado: você não possui permissão para visualizar o histórico deste estudante.'
+                    });
+                }
+            }
+        }
+
         const filtros = {
             dataInicio: data_inicio,
             dataFim: data_fim,
             rotaId: rota_id ? Number(rota_id) : undefined,
-            motoristaId: motorista_id ? Number(motorista_id) : undefined
+            motoristaId: motorista_id ? Number(motorista_id) : undefined,
+            alunoId: aluno_id ? Number(aluno_id) : undefined,
+            alunosPermitidos: alunosPermitidos
         };
+
         const registros = await RelatorioModel.listarAuditoria(filtros);
 
         if (formato === 'csv') {
             res.setHeader('Content-Type', 'text/csv; charset=utf-8');
             res.setHeader(
                 'Content-Disposition',
-                'attachment; filename="relatorio-auditoria.csv"'
+                'attachment; filename="historico-transporte.csv"'
             );
             return res.status(200).send(gerarCsv(registros));
         }
@@ -122,13 +147,14 @@ exports.auditoria = async (req, res) => {
                 data_inicio: data_inicio || null,
                 data_fim: data_fim || null,
                 rota_id: rota_id ? Number(rota_id) : null,
-                motorista_id: motorista_id ? Number(motorista_id) : null
+                motorista_id: motorista_id ? Number(motorista_id) : null,
+                aluno_id: aluno_id ? Number(aluno_id) : null
             },
             total_registros: registros.length,
             registros
         });
     } catch (error) {
-        console.error('Erro ao gerar relatório de auditoria:', error);
-        return res.status(500).json({ erro: 'Erro ao gerar relatório de auditoria.' });
+        console.error('Erro ao gerar relatório/histórico:', error);
+        return res.status(500).json({ erro: 'Erro ao processar a consulta de histórico.' });
     }
 };
