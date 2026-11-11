@@ -6,6 +6,7 @@ router.post('/', rotaController.criar);
 router.get('/', rotaController.listar);
 router.get('/:id', rotaController.buscarPorId);
 router.put('/:id', rotaController.atualizar);
+router.patch('/:id/status', rotaController.atualizarStatus);
 router.delete('/:id', rotaController.deletar);
 router.get('/:id/posicao-atual', rotaController.obterPosicaoAtual);
 router.patch('/:id/localizacao', rotaController.atualizarLocalizacao);

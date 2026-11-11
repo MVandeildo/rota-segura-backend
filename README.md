@@ -45,6 +45,18 @@ A API ficará disponível em `http://localhost:3000`.
 - `GET|POST|PUT|DELETE /api/veiculos`
 - `GET|POST|PUT|DELETE /api/rotas`
 
+## Gerenciamento de rotas pelo frontend
+
+Antes de usar a tela `/rotas`, aplique `database/migrations/20261110_rotas_gerenciamento.sql` no banco configurado para a API. A migração adiciona o status ativo/inativo e a tabela de paradas; sem ela, as consultas de rotas não estarão disponíveis.
+
+- `GET /api/rotas` lista rotas com veículo, motorista e paradas ordenadas.
+- `POST /api/rotas` cria uma rota com `nome`, `turno`, `veiculo_id`, `motorista_id` e `paradas`. Cada parada recebe `endereco`, `horario_embarque` e `horario_desembarque` no formato `HH:mm`. Se `turno` não for enviado por um cliente legado, a API usa `MANHA`.
+- `PUT /api/rotas/:id` atualiza a rota e substitui suas paradas.
+- `PATCH /api/rotas/:id/status` ativa ou inativa com `{ "ativa": false }`.
+- `GET|POST /api/veiculos` e `GET|POST /api/motoristas` fornecem as opções e o cadastro do motorista. O cadastro de motorista requer `nome`, `email` e `senha`; `telefone` é opcional.
+
+Configure `VITE_API_URL` no frontend quando a API não estiver em `http://localhost:3000`. O backend usa `CLIENT_URL` para limitar as origens CORS permitidas; informe várias origens separadas por vírgula quando necessário.
+
 ## Redefinição de senha
 
 Antes de usar o fluxo, aplique `database/migrations/20261005_password_reset_tokens.sql` e configure as variáveis SMTP e `CLIENT_URL` no `.env`.
