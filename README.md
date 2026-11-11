@@ -45,14 +45,17 @@ A API ficará disponível em `http://localhost:3000`.
 - `GET|POST|PUT|DELETE /api/veiculos`
 - `GET|POST|PUT|DELETE /api/rotas`
 
-## Início, finalização e rastreamento de rotas
+## Gerenciamento de rotas pelo frontend
 
-Aplique `database/migrations/20261026_status_e_ciclo_de_rotas.sql` antes de usar o ciclo de percurso. Uma rota nova começa com status `Pendente`.
+Antes de usar a tela `/rotas`, aplique `database/migrations/20261110_rotas_gerenciamento.sql` no banco configurado para a API. A migração adiciona o status ativo/inativo e a tabela de paradas; sem ela, as consultas de rotas não estarão disponíveis.
 
-- `PATCH /api/rotas/:id/iniciar` altera o status para `Em Trânsito` e habilita o recebimento de coordenadas.
-- `PATCH /api/rotas/:id/localizacao` recebe os pontos enviados pelo GPS do aplicativo. Envie `{ "latitude": -23.55, "longitude": -46.63, "velocidade": 30, "heading": 90 }` periodicamente enquanto a rota estiver em trânsito. Os pontos são persistidos e emitidos para a sala Socket.IO `rota_<id>` como `posicao_atualizada`.
-- `PATCH /api/rotas/:id/finalizar` altera o status para `Finalizada`; novas atualizações de localização são recusadas.
-- Iniciar é permitido somente para rotas `Pendente`, e finalizar somente para rotas `Em Trânsito`. Transições inválidas respondem `409 Conflict`.
+- `GET /api/rotas` lista rotas com veículo, motorista e paradas ordenadas.
+- `POST /api/rotas` cria uma rota com `nome`, `turno`, `veiculo_id`, `motorista_id` e `paradas`. Cada parada recebe `endereco`, `horario_embarque` e `horario_desembarque` no formato `HH:mm`. Se `turno` não for enviado por um cliente legado, a API usa `MANHA`.
+- `PUT /api/rotas/:id` atualiza a rota e substitui suas paradas.
+- `PATCH /api/rotas/:id/status` ativa ou inativa com `{ "ativa": false }`.
+- `GET|POST /api/veiculos` e `GET|POST /api/motoristas` fornecem as opções e o cadastro do motorista. O cadastro de motorista requer `nome`, `email` e `senha`; `telefone` é opcional.
+
+Configure `VITE_API_URL` no frontend quando a API não estiver em `http://localhost:3000`. O backend usa `CLIENT_URL` para limitar as origens CORS permitidas; informe várias origens separadas por vírgula quando necessário.
 
 ## Redefinição de senha
 

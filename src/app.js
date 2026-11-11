@@ -22,6 +22,13 @@ const { notFoundHandler, errorHandler } = require('./middlewares/error-handler')
 const authRouter = require("./routes/auth");
 
 const app = express();
+const allowedOrigins = (process.env.CLIENT_URL || 'http://localhost:5173,http://127.0.0.1:5173')
+    .split(',')
+    .map((origin) => origin.trim());
+
+app.use(cors({
+    origin: (origin, callback) => callback(null, !origin || allowedOrigins.includes(origin))
+}));
 app.get('/', (req, res) => {
     res.json({
         name: 'RotaSegura API',
