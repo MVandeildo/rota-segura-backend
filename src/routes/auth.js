@@ -1,15 +1,11 @@
 const express = require("express");
 const router = express.Router();
 
-const { randomBytes, createHash } = require("crypto");
-const { hash, compare } = require("bcrypt");
+const { hash, compare } = require("bcryptjs");
 
 const pool = require("../config/database");
-const {
-    createPasswordResetUrl,
-    sendPasswordResetEmail,
-} = require("../utils/email");
-
+const enviarEmailRecuperacao = require("../config/enviar_email");
+const bcrypt = require('bcrypt');
 const {
     createAccessToken,
     createRefreshToken,
@@ -19,7 +15,8 @@ const {
 
 router.post("/signup", async (req, res) => {
     try {
-        const { email, password } = req.body;
+        // Recebe também o 'perfil' enviado do front-end
+        const { nome, email, password, perfil } = req.body;
 
         if (!email || !password) {
             return res.status(400).json({
@@ -41,12 +38,15 @@ router.post("/signup", async (req, res) => {
         }
 
         const passwordHash = await hash(password, 10);
+        
+        // Define o perfil recebido ou usa 'responsavel' apenas se vier vazio
+        const perfilFinal = perfil ? perfil.trim().toLowerCase() : 'responsavel';
 
         const novoUsuario = await pool.query(
-            `INSERT INTO usuarios (email, password)
-             VALUES ($1, $2)
-             RETURNING id, email, verified`,
-            [email, passwordHash]
+            `INSERT INTO usuarios (nome, email, password, perfil)
+             VALUES ($1, $2, $3, $4)
+             RETURNING id, nome, email, verified, perfil`,
+            [nome, email, passwordHash, perfilFinal]
         );
 
         return res.status(201).json({
@@ -57,7 +57,6 @@ router.post("/signup", async (req, res) => {
 
     } catch (error) {
         console.error(error);
-
         return res.status(500).json({
             type: "error",
             message: "Erro ao criar usuário!",
@@ -68,7 +67,7 @@ router.post("/signup", async (req, res) => {
 
 router.post("/signin", async (req, res) => {
     try {
-        const { email, password } = req.body;
+        const { email, password, perfil } = req.body; // 'perfil' enviado pelo front-end ao tentar logar
 
         if (!email || !password) {
             return res.status(400).json({
@@ -77,8 +76,9 @@ router.post("/signin", async (req, res) => {
             });
         }
 
+        // Buscamos também o 'perfil' cadastrado no banco de dados
         const resultado = await pool.query(
-            `SELECT id, email, password, verified
+            `SELECT id, nome, email, password, verified, perfil
              FROM usuarios
              WHERE email = $1`,
             [email]
@@ -105,6 +105,15 @@ router.post("/signin", async (req, res) => {
             });
         }
 
+        // ** VALIDAÇÃO ESTRITA DE PERFIL **
+        // Se o front-end enviou um perfil e ele é diferente do cadastrado no banco, negamos o acesso
+        if (perfil && usuario.perfil && usuario.perfil !== perfil) {
+            return res.status(403).json({
+                message: `Acesso negado. Esta conta está cadastrada como '${usuario.perfil}', não sendo permitido o acesso como '${perfil}'.`,
+                type: "error",
+            });
+        }
+
         const accessToken = createAccessToken(usuario.id);
         const refreshToken = createRefreshToken(usuario.id);
 
@@ -117,11 +126,17 @@ router.post("/signin", async (req, res) => {
 
         sendRefreshToken(res, refreshToken);
 
-        sendAccessToken(
-            req,
-            res,
-            accessToken
-        );
+        return res.json({
+            accesstoken: accessToken,
+            message: "Login com sucesso",
+            type: "success",
+            user: {
+                id: usuario.id,
+                nome: usuario.nome,
+                email: usuario.email,
+                perfil: usuario.perfil // Retornamos o perfil real do banco para o front-end
+            }
+        });
 
     } catch (error) {
         console.error(error);
@@ -130,113 +145,6 @@ router.post("/signin", async (req, res) => {
             type: "error",
             message: "Erro ao fazer login!",
             error: error.message,
-        });
-    }
-});
-
-router.post("/request-password-reset", async (req, res) => {
-    try {
-        const email = typeof req.body.email === "string"
-            ? req.body.email.trim().toLowerCase()
-            : "";
-
-        if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-            return res.status(400).json({
-                message: "Informe um e-mail válido.",
-                type: "error",
-            });
-        }
-
-        const resultado = await pool.query(
-            `SELECT id, email
-             FROM usuarios
-             WHERE LOWER(email) = $1`,
-            [email]
-        );
-
-        if (resultado.rows.length > 0) {
-            const usuario = resultado.rows[0];
-            const token = randomBytes(32).toString("hex");
-            const tokenHash = createHash("sha256").update(token).digest("hex");
-
-            await pool.query(
-                `INSERT INTO password_reset_tokens (usuario_id, token_hash, expires_at)
-                 VALUES ($1, $2, NOW() + INTERVAL '1 hour')
-                 ON CONFLICT (usuario_id)
-                 DO UPDATE SET token_hash = EXCLUDED.token_hash,
-                               expires_at = EXCLUDED.expires_at`,
-                [usuario.id, tokenHash]
-            );
-
-            await sendPasswordResetEmail(
-                usuario.email,
-                createPasswordResetUrl(usuario.id, token)
-            );
-        }
-
-        return res.json({
-            message: "Se o e-mail estiver cadastrado, você receberá instruções para redefinir sua senha.",
-            type: "success",
-        });
-    } catch (error) {
-        console.error("Erro ao solicitar redefinição de senha:", error);
-        return res.status(500).json({
-            message: "Não foi possível solicitar a redefinição de senha.",
-            type: "error",
-        });
-    }
-});
-
-router.post("/reset-password", async (req, res) => {
-    try {
-        const { id, token, password } = req.body;
-
-        if (!/^\d+$/.test(String(id || "")) ||
-            typeof token !== "string" ||
-            !/^[a-f0-9]{64}$/.test(token) ||
-            typeof password !== "string" ||
-            password.length < 8 ||
-            Buffer.byteLength(password, "utf8") > 72) {
-            return res.status(400).json({
-                message: "Informe um token válido e uma senha entre 8 caracteres e 72 bytes.",
-                type: "error",
-            });
-        }
-
-        const tokenHash = createHash("sha256").update(token).digest("hex");
-        const passwordHash = await hash(password, 10);
-        const resultado = await pool.query(
-            `WITH token_utilizado AS (
-                DELETE FROM password_reset_tokens
-                WHERE usuario_id = $1
-                  AND token_hash = $2
-                  AND expires_at > NOW()
-                RETURNING usuario_id
-             )
-             UPDATE usuarios AS usuario
-             SET password = $3, refresh_token = NULL
-             FROM token_utilizado
-             WHERE usuario.id = token_utilizado.usuario_id
-             RETURNING usuario.id`,
-            [id, tokenHash, passwordHash]
-        );
-
-        if (resultado.rows.length === 0) {
-            return res.status(400).json({
-                message: "Token inválido ou expirado.",
-                type: "error",
-            });
-        }
-
-        return res.json({
-            message: "Senha redefinida com sucesso.",
-            type: "success",
-        });
-    } catch (error) {
-        console.error("Erro ao redefinir senha:", error);
-        return res.status(500).json({
-            message: "Não foi possível redefinir a senha.",
-            type: "error",
         });
     }
 });
@@ -281,7 +189,6 @@ router.post("/refresh_token", async (req, res) => {
             });
         }
 
-        // Busca o utilizador no PostgreSQL
         const resultado = await pool.query(
             "SELECT * FROM usuarios WHERE id = $1",
             [id]
@@ -342,5 +249,112 @@ router.get(
         });
     }
 );
+
+const crypto = require("crypto");
+
+router.post("/forgot-password", async (req, res) => {
+    try {
+        const { email } = req.body;
+
+        if (!email) {
+            return res.status(400).json({
+                message: "O e-mail é obrigatório.",
+                type: "error",
+            });
+        }
+
+        const resultado = await pool.query(
+            "SELECT id, email, nome FROM usuarios WHERE email = $1",
+            [email]
+        );
+
+        if (resultado.rows.length === 0) {
+            return res.status(200).json({
+                message: "Se o e-mail estiver cadastrado, você receberá as instruções em breve.",
+                type: "success",
+            });
+        }
+
+        const usuario = resultado.rows[0];
+
+        const resetToken = crypto.randomBytes(32).toString("hex");
+        const tokenExpiration = new Date(Date.now() + 3600000); 
+
+        await pool.query(
+            `UPDATE usuarios 
+             SET reset_token = $1, reset_token_expires = $2 
+             WHERE id = $3`,
+            [resetToken, tokenExpiration, usuario.id]
+        );
+
+        const linkRedefinicao = `http://localhost:5173/redefinir-senha?token=${resetToken}`;
+
+        await enviarEmailRecuperacao(usuario.email, linkRedefinicao, usuario.nome);
+
+        return res.status(200).json({
+            message: "Instruções enviadas com sucesso para o seu e-mail.",
+            type: "success",
+        });
+
+    } catch (error) {
+        console.error("Erro no forgot-password:", error);
+        return res.status(500).json({
+            type: "error",
+            message: "Erro ao processar a solicitação de recuperação de senha.",
+            error: error.message,
+        });
+    }
+});
+
+router.post("/reset-password", async (req, res) => {
+    try {
+        const { token, novaSenha } = req.body;
+
+        if (!token || !novaSenha) {
+            return res.status(400).json({
+                message: "Token e nova senha são obrigatórios.",
+                type: "error",
+            });
+        }
+
+        const resultado = await pool.query(
+            `SELECT id FROM usuarios 
+             WHERE reset_token = $1 AND reset_token_expires > NOW()`,
+            [token]
+        );
+
+        if (resultado.rows.length === 0) {
+            return res.status(400).json({
+                message: "Token inválido ou expirado.",
+                type: "error",
+            });
+        }
+
+        const usuario = resultado.rows[0];
+
+        const salt = await bcrypt.genSalt(10);
+        const senhaHash = await bcrypt.hash(novaSenha, salt);
+
+        await pool.query(
+            `UPDATE usuarios 
+             SET password = $1, reset_token = NULL, reset_token_expires = NULL 
+             WHERE id = $2`,
+            [senhaHash, usuario.id]
+        );
+
+        return res.status(200).json({
+            message: "Senha redefinida com sucesso!",
+            type: "success",
+        });
+
+    } catch (error) {
+        console.error("Erro no reset-password:", error);
+        return res.status(500).json({
+            type: "error",
+            message: "Erro interno ao redefinir a senha.",
+            error: error.message,
+        });
+    }
+});
 
 module.exports = router;

@@ -7,6 +7,38 @@ const coordenadaValida = (valor, minimo, maximo) =>
     valor >= minimo &&
     valor <= maximo;
 
+const dataValida = (valor) => {
+    if (typeof valor !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(valor)) {
+        return false;
+    }
+
+    const data = new Date(`${valor}T00:00:00.000Z`);
+    return !Number.isNaN(data.getTime()) && data.toISOString().slice(0, 10) === valor;
+};
+
+exports.listarRotaDoDia = async (req, res) => {
+    const data = req.query.data;
+    if (data !== undefined && !dataValida(data)) {
+        return res.status(400).json({
+            erro: 'Informe uma data válida no formato AAAA-MM-DD.'
+        });
+    }
+
+    try {
+        const alunos = await PresencaModel.listarAlunosDaRotaDoDia({
+            motoristaId: req.usuario.id,
+            data: data || null
+        });
+
+        return res.status(200).json({
+            alunos
+        });
+    } catch (error) {
+        console.error('Erro ao listar alunos da rota do dia:', error);
+        return res.status(500).json({ erro: 'Erro ao listar alunos da rota do dia.' });
+    }
+};
+
 exports.registrar = async (req, res) => {
     const { aluno_id, tipo, latitude, longitude } = req.body || {};
     const alunoId = Number(aluno_id);
@@ -21,13 +53,9 @@ exports.registrar = async (req, res) => {
         });
     }
 
-    const coordenadasInformadas = latitude !== undefined || longitude !== undefined;
-    if (
-        coordenadasInformadas &&
-        (!coordenadaValida(latitude, -90, 90) || !coordenadaValida(longitude, -180, 180))
-    ) {
+    if (!coordenadaValida(latitude, -90, 90) || !coordenadaValida(longitude, -180, 180)) {
         return res.status(400).json({
-            erro: 'Informe latitude e longitude válidas juntas.'
+            erro: 'Informe latitude e longitude válidas para confirmar a presença.'
         });
     }
 
@@ -36,8 +64,8 @@ exports.registrar = async (req, res) => {
             alunoId,
             motoristaId: req.usuario.id,
             tipo,
-            latitude: coordenadasInformadas ? latitude : null,
-            longitude: coordenadasInformadas ? longitude : null
+            latitude,
+            longitude
         });
 
         if (!presenca) {
@@ -61,6 +89,7 @@ exports.registrar = async (req, res) => {
                 aluno_id: presenca.aluno_id,
                 rota_id: presenca.rota_id,
                 tipo: presenca.tipo,
+                status: presenca.tipo === 'EMBARQUE' ? 'EMBARCADO' : 'DESEMBARCADO',
                 latitude: presenca.latitude,
                 longitude: presenca.longitude,
                 registrado_em: presenca.registrado_em

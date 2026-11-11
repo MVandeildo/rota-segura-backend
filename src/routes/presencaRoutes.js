@@ -4,6 +4,13 @@ const { authMiddleware, requirePerfil } = require('../utils/protected');
 
 const router = express.Router();
 
+router.get(
+    '/rota-do-dia',
+    authMiddleware,
+    requirePerfil('MOTORISTA'),
+    presencaController.listarRotaDoDia
+);
+
 router.post(
     '/',
     authMiddleware,
