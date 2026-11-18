@@ -4,10 +4,8 @@ const criarAusencia = async (req, res) => {
     try {
         const { aluno_id, data_ausencia } = req.body;
         
-        // Padronizado de acordo com os outros métodos (ajuste conforme o seu middleware)
         const responsavel_id = req.usuario?.id || req.userId; 
 
-        // CORRIGIDO: Chamando corretamente o service ao invés da função local
         const novaAusencia = await ausenciaService.criarAusencia({
             aluno_id,
             data_ausencia,
