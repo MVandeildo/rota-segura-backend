@@ -20,7 +20,6 @@ const criarUsuario = async (req, res) => {
     }
 };
 
-
 const listarUsuarios = async (req, res) => {
     try {
         const usuarios = await usuarioService.listarUsuarios();
@@ -32,7 +31,6 @@ const listarUsuarios = async (req, res) => {
     }
 };
 
-
 const buscarUsuario = async (req, res) => {
     try {
         const usuario = await usuarioService.buscarUsuarioPorId(req.params.id);
@@ -43,7 +41,6 @@ const buscarUsuario = async (req, res) => {
         return responderErro(res, error, 'Erro ao buscar usuário.');
     }
 };
-
 
 const atualizarUsuario = async (req, res) => {
     try {
@@ -62,13 +59,12 @@ const atualizarUsuario = async (req, res) => {
     }
 };
 
-
 const removerUsuario = async (req, res) => {
     try {
         const usuario = await usuarioService.removerUsuario(req.params.id);
 
         return res.status(200).json({
-            mensagem: 'Usuário inativado com sucesso.',
+            mensagem: 'Usuário removido com sucesso.',
             usuario
         });
 
@@ -76,7 +72,6 @@ const removerUsuario = async (req, res) => {
         return responderErro(res, error, 'Erro ao remover usuário.');
     }
 };
-
 
 module.exports = {
     criarUsuario,
