@@ -16,6 +16,7 @@ const motoristaRoutes = require('./routes/motoristaRoutes');
 const presencaRoutes = require('./routes/presencaRoutes');
 const notificacaoRoutes = require('./routes/notificacaoRoutes');
 const relatorioRoutes = require('./routes/relatorioRoutes');
+const viagemRoutes = require('./routes/viagemRoutes');
 
 const { notFoundHandler, errorHandler } = require('./middlewares/error-handler');
 
@@ -51,6 +52,7 @@ app.use('/api/frota', frotaRoutes);
 app.use('/api/presencas', presencaRoutes);
 app.use('/api/notificacoes', notificacaoRoutes);
 app.use('/api/relatorios', relatorioRoutes);
+app.use('/api/viagens', viagemRoutes);
 
 app.get('/api/status', (req, res) => {
     return res.json({ status: 'API RotaSegura operacional!' });
