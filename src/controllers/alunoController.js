@@ -8,17 +8,21 @@ const criarAluno = async (req, res) => {
             || req.headers['x-user-role'] 
             || req.body.userRole;
 
-        if (userRole !== 'administrador' && userRole !== 'admin') {
+        const normalizedRole = userRole ? String(userRole).toUpperCase() : '';
+        const isAdminOrGestor = ['ADMIN', 'GESTOR', 'ADMINISTRADOR'].includes(normalizedRole);
+
+        if (!isAdminOrGestor) {
             return res.status(403).json({ 
-                erro: 'Acesso negado. Apenas administradores podem cadastrar novos estudantes.' 
+                erro: 'Acesso negado. Apenas administradores e gestores podem cadastrar novos estudantes.' 
             });
         }
 
-        const { email_responsavel } = req.body;
-        
-        let responsavelId = req.body.responsavel_id || null;
+        // Extraímos explicitamente a matrícula e o e-mail do responsável
+        const { matricula, email_responsavel, responsavel_id, ...restoBody } = req.body;
 
-        if (email_responsavel && email_responsavel.trim() !== '' && !responsavelId) {
+        // Validação e limpeza do e-mail do responsável
+        let emailResponsavelValidado = null;
+        if (email_responsavel && email_responsavel.trim() !== '') {
             const usuarioResponsavel = await UsuarioModel.findByEmail(email_responsavel);
             
             if (!usuarioResponsavel) {
@@ -26,12 +30,14 @@ const criarAluno = async (req, res) => {
                     erro: 'Não existe nenhum usuário cadastrado com este e-mail de responsável.' 
                 });
             }
-            responsavelId = usuarioResponsavel.id;
+            emailResponsavelValidado = usuarioResponsavel.email;
         }
 
+        // Montamos o objeto garantindo que a matrícula seja enviada de forma limpa
         const dadosAluno = {
-            ...req.body,
-            responsavel_id: responsavelId ? Number(responsavelId) : null,
+            ...restoBody,
+            matricula: matricula ? String(matricula).trim() : null,
+            email_responsavel: emailResponsavelValidado,
             usuario_id: req.usuario?.id ? Number(req.usuario.id) : null
         };
 
@@ -53,8 +59,9 @@ const criarAluno = async (req, res) => {
 const listarAlunos = async (req, res) => {
     try {
         const usuarioId = req.usuario?.id;
+        const userPerfil = req.usuario?.perfil ? String(req.usuario.perfil).toUpperCase() : '';
 
-        const alunos = usuarioId 
+        const alunos = (userPerfil === 'RESPONSAVEL' && usuarioId)
             ? await alunoService.listarAlunosPorResponsavel(usuarioId)
             : await alunoService.listarAlunos();
 
@@ -85,9 +92,15 @@ const buscarAlunoPorId = async (req, res) => {
 
 const atualizarAluno = async (req, res) => {
     try {
+        // Garante que se a matrícula for enviada na atualização, ela também seja tratada
+        const dadosAtualizacao = { ...req.body };
+        if (dadosAtualizacao.matricula) {
+            dadosAtualizacao.matricula = String(dadosAtualizacao.matricula).trim();
+        }
+
         const aluno = await alunoService.atualizarAluno(
             req.params.id,
-            req.body
+            dadosAtualizacao
         );
 
         return res.status(200).json({

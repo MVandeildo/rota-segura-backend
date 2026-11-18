@@ -2,7 +2,6 @@
 const db = require('../config/database');
 
 class AusenciaModel {
-    // Registra a ausência de um aluno em uma data específica.
     static async create({ aluno_id, responsavel_id, data_ausencia }) {
         const result = await db.query(
             `INSERT INTO ausencias_alunos (
@@ -18,7 +17,6 @@ class AusenciaModel {
         return result.rows[0];
     }
 
-    // Busca uma ausência pelo seu ID.
     static async findById(id) {
         const result = await db.query(
             `SELECT *
@@ -30,7 +28,6 @@ class AusenciaModel {
         return result.rows[0];
     }
 
-    // Lista as ausências registradas para uma data.
     static async findByDate(data_ausencia) {
         const result = await db.query(
             `SELECT
@@ -53,7 +50,6 @@ class AusenciaModel {
         return result.rows;
     }
 
-    // Lista as ausências de um aluno.
     static async findByAlunoId(aluno_id) {
         const result = await db.query(
             `SELECT *
@@ -66,7 +62,6 @@ class AusenciaModel {
         return result.rows;
     }
 
-    // Verifica se já existe ausência para o aluno na data.
     static async exists(aluno_id, data_ausencia) {
         const result = await db.query(
             `SELECT id
@@ -79,7 +74,6 @@ class AusenciaModel {
         return result.rows.length > 0;
     }
 
-    // Cancela uma ausência pelo ID.
     static async delete(id) {
         const result = await db.query(
             `DELETE FROM ausencias_alunos

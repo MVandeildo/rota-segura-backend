@@ -2,37 +2,25 @@ const db = require("../config/database");
 
 class RotaModel {
     static async findAll() {
-        const result = await db.query(`
-            SELECT r.*, v.placa AS veiculo_placa, v.modelo AS veiculo_modelo,
-                   u.nome AS motorista_nome,
-                   COALESCE(
-                       json_agg(
-                           json_build_object(
-                               'id', p.id,
-                               'endereco', p.endereco,
-                               'horario_embarque', p.horario_embarque,
-                               'horario_desembarque', p.horario_desembarque,
-                               'ordem', p.ordem
-                           ) ORDER BY p.ordem
-                       ) FILTER (WHERE p.id IS NOT NULL),
-                       '[]'::json
-                   ) AS paradas
-            FROM rotas r 
-            LEFT JOIN veiculos v ON r.veiculo_id = v.id
-            LEFT JOIN usuarios u ON r.motorista_id = u.id
-            LEFT JOIN paradas_rota p ON p.rota_id = r.id
-            GROUP BY r.id, v.placa, v.modelo, u.nome
-            ORDER BY r.id ASC
-        `);
-        return result.rows;
+        const client = await db.connect();
+        try {
+            const query = `
+                SELECT id, nome, destino_lat, destino_lng, turno, ativa 
+                FROM rotas 
+                ORDER BY id DESC;
+            `;
+            const result = await client.query(query);
+            return result.rows;
+        } finally {
+            client.release();
+        }
     }
 
     static async findById(id) {
         const result = await db.query(`
-            SELECT r.*, v.placa AS veiculo_placa, v.modelo AS veiculo_modelo,
-                   u.nome AS motorista_nome,
+            SELECT r.*, 
                    COALESCE(
-                       json_agg(
+                       (SELECT json_agg(
                            json_build_object(
                                'id', p.id,
                                'endereco', p.endereco,
@@ -40,44 +28,57 @@ class RotaModel {
                                'horario_desembarque', p.horario_desembarque,
                                'ordem', p.ordem
                            ) ORDER BY p.ordem
-                       ) FILTER (WHERE p.id IS NOT NULL),
+                       ) FROM paradas_rota p WHERE p.rota_id = r.id),
                        '[]'::json
                    ) AS paradas
-            FROM rotas r 
-            LEFT JOIN veiculos v ON r.veiculo_id = v.id
-            LEFT JOIN usuarios u ON r.motorista_id = u.id
-            LEFT JOIN paradas_rota p ON p.rota_id = r.id
+            FROM rotas r
             WHERE r.id = $1
-            GROUP BY r.id, v.placa, v.modelo, u.nome
         `, [id]);
         return result.rows[0];
     }
 
-    static async create({ nome, turno = 'MANHA', veiculo_id, motorista_id = null, destino_lat = null, destino_lng = null, paradas = [] }) {
+    static async create({ nome, turno, destino_lat, destino_lng, ativa, paradas }) {
         const client = await db.connect();
-        let rotaId;
-
         try {
             await client.query('BEGIN');
-            const result = await client.query(
-                `INSERT INTO rotas (nome, turno, veiculo_id, motorista_id, destino_lat, destino_lng, ativa)
-                 VALUES ($1, $2, $3, $4, $5, $6, TRUE) RETURNING id`,
-                [nome, turno, veiculo_id, motorista_id, destino_lat, destino_lng]
-            );
-            rotaId = result.rows[0].id;
-            await this.replaceStops(client, rotaId, paradas);
+
+            const rotaQuery = `
+                INSERT INTO rotas (nome, turno, destino_lat, destino_lng, ativa)
+                VALUES ($1, $2, $3, $4, $5)
+                RETURNING *;
+            `;
+            const rotaValues = [
+                nome, 
+                turno || 'MANHA', 
+                destino_lat || null, 
+                destino_lng || null, 
+                ativa ?? true
+            ];
+            
+            const rotaResult = await client.query(rotaQuery, rotaValues);
+            const novaRota = rotaResult.rows[0];
+
+            if (paradas && paradas.length > 0) {
+                for (const [index, parada] of paradas.entries()) {
+                    await client.query(
+                        `INSERT INTO paradas_rota (rota_id, endereco, horario_embarque, horario_desembarque, ordem)
+                         VALUES ($1, $2, $3, $4, $5)`,
+                        [novaRota.id, parada.endereco, parada.horario_embarque || null, parada.horario_desembarque || null, index + 1]
+                    );
+                }
+            }
+
             await client.query('COMMIT');
+            return novaRota;
         } catch (error) {
             await client.query('ROLLBACK');
             throw error;
         } finally {
             client.release();
         }
-
-        return this.findById(rotaId);
     }
 
-    static async update(id, { nome, turno, veiculo_id, motorista_id, destino_lat, destino_lng, ativa, paradas }) {
+    static async update(id, { nome, turno, destino_lat, destino_lng, ativa, paradas }) {
         const client = await db.connect();
         let updated = false;
 
@@ -87,19 +88,14 @@ class RotaModel {
                 `UPDATE rotas
                  SET nome = COALESCE($1, nome),
                      turno = COALESCE($2, turno),
-                     veiculo_id = COALESCE($3, veiculo_id),
-                     motorista_id = CASE WHEN $4::boolean THEN $5 ELSE motorista_id END,
-                     destino_lat = COALESCE($6, destino_lat),
-                     destino_lng = COALESCE($7, destino_lng),
-                     ativa = COALESCE($8, ativa)
-                 WHERE id = $9
+                     destino_lat = COALESCE($3, destino_lat),
+                     destino_lng = COALESCE($4, destino_lng),
+                     ativa = COALESCE($5, ativa)
+                 WHERE id = $6
                  RETURNING id`,
                 [
                     nome ?? null,
                     turno ?? null,
-                    veiculo_id ?? null,
-                    motorista_id !== undefined,
-                    motorista_id ?? null,
                     destino_lat ?? null,
                     destino_lng ?? null,
                     ativa ?? null,
@@ -131,7 +127,7 @@ class RotaModel {
             await client.query(
                 `INSERT INTO paradas_rota (rota_id, endereco, horario_embarque, horario_desembarque, ordem)
                  VALUES ($1, $2, $3, $4, $5)`,
-                [rotaId, parada.endereco, parada.horario_embarque, parada.horario_desembarque, index + 1]
+                [rotaId, parada.endereco, parada.horario_embarque || null, parada.horario_desembarque || null, index + 1]
             );
         }
     }
@@ -144,27 +140,27 @@ class RotaModel {
         return result.rows.length > 0 ? this.findById(id) : null;
     }
 
-    static async updateLocalizacao(rotaId, { latitude, longitude, velocidade = null, heading = null }) {
+    static async getPosicaoAtual(id) {
         const result = await db.query(
-            `UPDATE rotas 
-             SET latitude = $1, longitude = $2, velocidade = $3, heading = $4, ultima_atualizacao = NOW() 
-             WHERE id = $5 AND status = 'Em Trânsito' RETURNING *`,
-            [latitude, longitude, velocidade, heading, rotaId]
+            'SELECT id, latitude_atual, longitude_atual FROM rotas WHERE id = $1',
+            [id]
         );
-        return result.rows[0];
+        if (result.rows.length === 0) return null;
+        return {
+            lat: result.rows[0].latitude_atual,
+            lng: result.rows[0].longitude_atual
+        };
     }
 
-    static async updateStatus(rotaId, status, statusAtual) {
+    static async updateLocalizacao(id, lat, lng) {
         const result = await db.query(
-            `UPDATE rotas
-             SET status = $1,
-                 iniciada_em = CASE WHEN $1 = 'Em Trânsito' THEN NOW() ELSE iniciada_em END,
-                 finalizada_em = CASE WHEN $1 = 'Finalizada' THEN NOW() ELSE finalizada_em END
-             WHERE id = $2 AND status = $3
-             RETURNING *`,
-            [status, rotaId, statusAtual]
+            `UPDATE rotas 
+             SET latitude_atual = $1, longitude_atual = $2 
+             WHERE id = $3 
+             RETURNING id, latitude_atual, longitude_atual`,
+            [lat, lng, id]
         );
-        return result.rows[0];
+        return result.rows[0] || null;
     }
 }
 

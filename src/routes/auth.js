@@ -1,33 +1,40 @@
 const express = require("express");
 const router = express.Router();
-
+const crypto = require("crypto");
 const { hash, compare } = require("bcryptjs");
+const { verify } = require("jsonwebtoken");
 
 const pool = require("../config/database");
 const enviarEmailRecuperacao = require("../config/enviar_email");
-const bcrypt = require('bcrypt');
+const { authMiddleware } = require("../utils/protected");
 const {
     createAccessToken,
     createRefreshToken,
-    sendAccessToken,
     sendRefreshToken,
 } = require("../utils/tokens");
 
+// Helper para normalizar variações de perfil entre front-end e banco
+const normalizarPerfil = (perfil) => {
+    if (!perfil) return null;
+    const p = String(perfil).trim().toUpperCase();
+    if (['ADMINISTRADOR', 'GESTOR', 'ADMIN'].includes(p)) return 'ADMIN'; // Ajuste para 'GESTOR' se sua constraint CHECK usar 'GESTOR'
+    return p;
+};
+
 router.post("/signup", async (req, res) => {
     try {
-        // Recebe também o 'perfil' enviado do front-end
-        const { nome, email, password, perfil } = req.body;
+        const { nome, email, password } = req.body;
 
-        if (!email || !password) {
+        if (!nome || !email || !password) {
             return res.status(400).json({
-                message: "E-mail e senha são obrigatórios.",
+                message: "Nome, e-mail e senha são obrigatórios.",
                 type: "error",
             });
         }
 
         const usuarioExistente = await pool.query(
             "SELECT id FROM usuarios WHERE email = $1",
-            [email]
+            [email.trim().toLowerCase()]
         );
 
         if (usuarioExistente.rows.length > 0) {
@@ -38,15 +45,15 @@ router.post("/signup", async (req, res) => {
         }
 
         const passwordHash = await hash(password, 10);
-        
-        // Define o perfil recebido ou usa 'responsavel' apenas se vier vazio
-        const perfilFinal = perfil ? perfil.trim().toLowerCase() : 'responsavel';
+
+        // Cadastro público força perfil RESPONSAVEL por segurança
+        const perfilPadrao = "RESPONSAVEL";
 
         const novoUsuario = await pool.query(
             `INSERT INTO usuarios (nome, email, password, perfil)
              VALUES ($1, $2, $3, $4)
              RETURNING id, nome, email, verified, perfil`,
-            [nome, email, passwordHash, perfilFinal]
+            [nome.trim(), email.trim().toLowerCase(), passwordHash, perfilPadrao]
         );
 
         return res.status(201).json({
@@ -54,9 +61,8 @@ router.post("/signup", async (req, res) => {
             type: "success",
             usuario: novoUsuario.rows[0],
         });
-
     } catch (error) {
-        console.error(error);
+        console.error("Erro no signup:", error);
         return res.status(500).json({
             type: "error",
             message: "Erro ao criar usuário!",
@@ -67,7 +73,7 @@ router.post("/signup", async (req, res) => {
 
 router.post("/signin", async (req, res) => {
     try {
-        const { email, password, perfil } = req.body; // 'perfil' enviado pelo front-end ao tentar logar
+        const { email, password, perfil } = req.body;
 
         if (!email || !password) {
             return res.status(400).json({
@@ -76,12 +82,11 @@ router.post("/signin", async (req, res) => {
             });
         }
 
-        // Buscamos também o 'perfil' cadastrado no banco de dados
         const resultado = await pool.query(
             `SELECT id, nome, email, password, verified, perfil
              FROM usuarios
              WHERE email = $1`,
-            [email]
+            [email.trim().toLowerCase()]
         );
 
         if (resultado.rows.length === 0) {
@@ -93,10 +98,7 @@ router.post("/signin", async (req, res) => {
 
         const usuario = resultado.rows[0];
 
-        const isMatch = await compare(
-            password,
-            usuario.password
-        );
+        const isMatch = await compare(password, usuario.password);
 
         if (!isMatch) {
             return res.status(401).json({
@@ -105,9 +107,11 @@ router.post("/signin", async (req, res) => {
             });
         }
 
-        // ** VALIDAÇÃO ESTRITA DE PERFIL **
-        // Se o front-end enviou um perfil e ele é diferente do cadastrado no banco, negamos o acesso
-        if (perfil && usuario.perfil && usuario.perfil !== perfil) {
+        // Validação de perfil case-insensitive e normalizada
+        const perfilSolicitado = normalizarPerfil(perfil);
+        const perfilBanco = normalizarPerfil(usuario.perfil);
+
+        if (perfilSolicitado && perfilBanco && perfilBanco !== perfilSolicitado) {
             return res.status(403).json({
                 message: `Acesso negado. Esta conta está cadastrada como '${usuario.perfil}', não sendo permitido o acesso como '${perfil}'.`,
                 type: "error",
@@ -134,13 +138,11 @@ router.post("/signin", async (req, res) => {
                 id: usuario.id,
                 nome: usuario.nome,
                 email: usuario.email,
-                perfil: usuario.perfil // Retornamos o perfil real do banco para o front-end
-            }
+                perfil: usuario.perfil,
+            },
         });
-
     } catch (error) {
-        console.error(error);
-
+        console.error("Erro no signin:", error);
         return res.status(500).json({
             type: "error",
             message: "Erro ao fazer login!",
@@ -151,14 +153,11 @@ router.post("/signin", async (req, res) => {
 
 router.post("/logout", (req, res) => {
     res.clearCookie("refreshtoken");
-
     return res.json({
         message: "Logout realizado com sucesso!",
         type: "success",
     });
 });
-
-const { verify } = require("jsonwebtoken");
 
 router.post("/refresh_token", async (req, res) => {
     try {
@@ -182,13 +181,6 @@ router.post("/refresh_token", async (req, res) => {
             });
         }
 
-        if (!id) {
-            return res.status(401).json({
-                message: "Invalid refresh token!",
-                type: "error",
-            });
-        }
-
         const resultado = await pool.query(
             "SELECT * FROM usuarios WHERE id = $1",
             [id]
@@ -196,7 +188,7 @@ router.post("/refresh_token", async (req, res) => {
 
         if (resultado.rows.length === 0) {
             return res.status(404).json({
-                message: "Usuario não encontrado!",
+                message: "Usuário não encontrado!",
                 type: "error",
             });
         }
@@ -225,32 +217,23 @@ router.post("/refresh_token", async (req, res) => {
             type: "success",
             accessToken,
         });
-
     } catch (error) {
         console.error("Erro no refresh_token:", error);
         return res.status(500).json({
             type: "error",
-            message: "Error ao atualizar token!",
+            message: "Erro ao atualizar token!",
             error: error.message,
         });
     }
 });
 
-const { authMiddleware } = require("../utils/protected");
-
-router.get(
-    "/protected",
-    authMiddleware,
-    async (req, res) => {
-        return res.json({
-            message: "Você está logado!",
-            type: "success",
-            usuario: req.usuario,
-        });
-    }
-);
-
-const crypto = require("crypto");
+router.get("/protected", authMiddleware, async (req, res) => {
+    return res.json({
+        message: "Você está logado!",
+        type: "success",
+        usuario: req.usuario,
+    });
+});
 
 router.post("/forgot-password", async (req, res) => {
     try {
@@ -265,7 +248,7 @@ router.post("/forgot-password", async (req, res) => {
 
         const resultado = await pool.query(
             "SELECT id, email, nome FROM usuarios WHERE email = $1",
-            [email]
+            [email.trim().toLowerCase()]
         );
 
         if (resultado.rows.length === 0) {
@@ -276,9 +259,8 @@ router.post("/forgot-password", async (req, res) => {
         }
 
         const usuario = resultado.rows[0];
-
         const resetToken = crypto.randomBytes(32).toString("hex");
-        const tokenExpiration = new Date(Date.now() + 3600000); 
+        const tokenExpiration = new Date(Date.now() + 3600000);
 
         await pool.query(
             `UPDATE usuarios 
@@ -288,14 +270,12 @@ router.post("/forgot-password", async (req, res) => {
         );
 
         const linkRedefinicao = `http://localhost:5173/redefinir-senha?token=${resetToken}`;
-
         await enviarEmailRecuperacao(usuario.email, linkRedefinicao, usuario.nome);
 
         return res.status(200).json({
             message: "Instruções enviadas com sucesso para o seu e-mail.",
             type: "success",
         });
-
     } catch (error) {
         console.error("Erro no forgot-password:", error);
         return res.status(500).json({
@@ -331,9 +311,7 @@ router.post("/reset-password", async (req, res) => {
         }
 
         const usuario = resultado.rows[0];
-
-        const salt = await bcrypt.genSalt(10);
-        const senhaHash = await bcrypt.hash(novaSenha, salt);
+        const senhaHash = await hash(novaSenha, 10);
 
         await pool.query(
             `UPDATE usuarios 
@@ -346,12 +324,94 @@ router.post("/reset-password", async (req, res) => {
             message: "Senha redefinida com sucesso!",
             type: "success",
         });
-
     } catch (error) {
         console.error("Erro no reset-password:", error);
         return res.status(500).json({
             type: "error",
             message: "Erro interno ao redefinir a senha.",
+            error: error.message,
+        });
+    }
+});
+
+// Rota protegida para Administradores/Gestores cadastrarem Motoristas ou outros Admins internamente
+router.post("/admin/criar-usuario", authMiddleware, async (req, res) => {
+    try {
+        // 1. Identifica quem está fazendo a requisição usando o ID injetado pelo authMiddleware
+        // (Nota: ajuste 'req.usuario?.id' ou 'req.userId' conforme o seu middleware de proteção)
+        const adminId = req.usuario?.id || req.userId;
+
+        if (!adminId) {
+            return res.status(401).json({ message: "Não autorizado.", type: "error" });
+        }
+
+        // 2. Confere no banco se o usuário logado realmente tem perfil de ADMIN ou GESTOR
+        const adminCheck = await pool.query(
+            "SELECT perfil FROM usuarios WHERE id = $1",
+            [adminId]
+        );
+
+        if (adminCheck.rows.length === 0 || !['ADMIN', 'GESTOR'].includes(adminCheck.rows[0].perfil)) {
+            return res.status(403).json({ 
+                message: "Acesso negado. Apenas administradores podem cadastrar novos membros.", 
+                type: "error" 
+            });
+        }
+
+        // 3. Recebe os dados do novo usuário enviado pelo front-end administrativo
+        const { nome, email, password, perfil } = req.body;
+
+        if (!nome || !email || !password || !perfil) {
+            return res.status(400).json({
+                message: "Nome, e-mail, senha e perfil são obrigatórios.",
+                type: "error",
+            });
+        }
+
+        const perfilFormatado = perfil.trim().toUpperCase();
+        const perfisPermitidos = ['MOTORISTA', 'ADMIN', 'GESTOR', 'RESPONSAVEL'];
+        
+        if (!perfisPermitidos.includes(perfilFormatado)) {
+            return res.status(400).json({
+                message: "Perfil inválido.",
+                type: "error",
+            });
+        }
+
+        // 4. Verifica se o e-mail já existe
+        const usuarioExistente = await pool.query(
+            "SELECT id FROM usuarios WHERE email = $1",
+            [email.trim().toLowerCase()]
+        );
+
+        if (usuarioExistente.rows.length > 0) {
+            return res.status(400).json({
+                message: "Já existe um usuário com este e-mail.",
+                type: "warning",
+            });
+        }
+
+        // 5. Cria o hash da senha e insere no banco com o perfil escolhido (ex: MOTORISTA)
+        const passwordHash = await hash(password, 10);
+
+        const novoUsuario = await pool.query(
+            `INSERT INTO usuarios (nome, email, password, perfil)
+             VALUES ($1, $2, $3, $4)
+             RETURNING id, nome, email, perfil`,
+            [nome.trim(), email.trim().toLowerCase(), passwordHash, perfilFormatado]
+        );
+
+        return res.status(201).json({
+            message: "Usuário cadastrado com sucesso pelo administrador!",
+            type: "success",
+            usuario: novoUsuario.rows[0],
+        });
+
+    } catch (error) {
+        console.error("Erro ao criar usuário por admin:", error);
+        return res.status(500).json({
+            type: "error",
+            message: "Erro interno ao cadastrar usuário.",
             error: error.message,
         });
     }

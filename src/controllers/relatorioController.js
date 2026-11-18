@@ -34,31 +34,31 @@ const escaparCsv = (valor) => {
 
 const gerarCsv = (registros) => {
     const cabecalho = [
-        'ID da presença',
-        'Data e hora',
-        'Tipo',
-        'ID do aluno',
-        'Nome do aluno',
+        'ID da viagem',
+        'Data',
+        'Turno',
         'ID da rota',
         'Nome da rota',
         'ID do motorista',
         'Nome do motorista',
-        'Latitude',
-        'Longitude'
+        'ID do veículo',
+        'Status',
+        'Início',
+        'Término'
     ];
 
     const linhas = registros.map((registro) => [
-        registro.presenca_id,
-        registro.registrado_em,
-        registro.tipo,
-        registro.aluno_id,
-        registro.aluno_nome,
+        registro.viagem_id,
+        registro.data,
+        registro.turno,
         registro.rota_id,
         registro.rota_nome,
         registro.motorista_id,
         registro.motorista_nome,
-        registro.latitude,
-        registro.longitude
+        registro.veiculo_id,
+        registro.status,
+        registro.iniciada_em,
+        registro.finalizada_em
     ]);
 
     return `\uFEFF${[cabecalho, ...linhas]
@@ -106,7 +106,8 @@ exports.auditoria = async (req, res) => {
             rotaId: rota_id ? Number(rota_id) : undefined,
             motoristaId: motorista_id ? Number(motorista_id) : undefined
         };
-        const registros = await RelatorioModel.listarAuditoria(filtros);
+        
+        const registros = await RelatorioModel.listarViagens(filtros);
 
         if (formato === 'csv') {
             res.setHeader('Content-Type', 'text/csv; charset=utf-8');
@@ -118,14 +119,14 @@ exports.auditoria = async (req, res) => {
         }
 
         return res.status(200).json({
-            filtros: {
-                data_inicio: data_inicio || null,
-                data_fim: data_fim || null,
-                rota_id: rota_id ? Number(rota_id) : null,
-                motorista_id: motorista_id ? Number(motorista_id) : null
-            },
-            total_registros: registros.length,
-            registros
+        filtros: {
+            data_inicio: data_inicio || null,
+            data_fim: data_fim || null,
+            rota_id: rota_id ? Number(rota_id) : null,
+            motorista_id: motorista_id ? Number(motorista_id) : null
+        },
+        total_registros: registros.length,
+        viagens: registros
         });
     } catch (error) {
         console.error('Erro ao gerar relatório de auditoria:', error);

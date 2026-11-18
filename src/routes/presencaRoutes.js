@@ -14,7 +14,15 @@ router.get(
 router.post(
     '/',
     authMiddleware,
-    requirePerfil('MOTORISTA'),
+    (req, res, next) => {
+        const perfisPermitidos = ['MOTORISTA', 'ADMIN', 'GESTOR'];
+        
+        if (!req.usuario || !perfisPermitidos.includes(req.usuario.perfil)) {
+            return res.status(403).json({ erro: "Usuário sem permissão para esta operação." });
+        }
+        
+        next();
+    },
     presencaController.registrar
 );
 

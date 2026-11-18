@@ -2,7 +2,6 @@ const db = require("../config/database");
 const VeiculoModel = require("../models/VeiculoModel");
 const { calcularETA } = require("../services/etaService");
 
-// Criar Veículo
 exports.criar = async (req, res) => {
     const { placa, modelo, capacidade } = req.body;
 
@@ -25,7 +24,6 @@ exports.criar = async (req, res) => {
     }
 };
 
-// Listar todos os Veículos
 exports.listar = async (req, res) => {
     try {
         const result = await db.query("SELECT * FROM veiculos ORDER BY id ASC");
@@ -35,7 +33,6 @@ exports.listar = async (req, res) => {
     }
 };
 
-// Buscar Veículo por ID
 exports.buscarPorId = async (req, res) => {
     const { id } = req.params;
     try {
@@ -49,7 +46,6 @@ exports.buscarPorId = async (req, res) => {
     }
 };
 
-// Obter Posição Atual e ETA para o Responsável (Passo 5 - Fallback)
 exports.obterPosicaoAtual = async (req, res) => {
     const { id } = req.params;
     const { destino_lat, destino_lng } = req.query;
@@ -87,7 +83,6 @@ exports.obterPosicaoAtual = async (req, res) => {
     }
 };
 
-// Atualizar Veículo
 exports.atualizar = async (req, res) => {
     const { id } = req.params;
     const { placa, modelo, capacidade, status } = req.body;
@@ -111,7 +106,6 @@ exports.atualizar = async (req, res) => {
     }
 };
 
-// Remover/Inativar Veículo
 exports.deletar = async (req, res) => {
     const { id } = req.params;
     try {
@@ -128,7 +122,6 @@ exports.deletar = async (req, res) => {
     }
 };
 
-// Atualizar Localização via GPS (Passo 4)
 exports.atualizarLocalizacao = async (req, res) => {
     const { id } = req.params;
     const { latitude, longitude, velocidade, heading, rota_id, destino_lat, destino_lng } = req.body;
