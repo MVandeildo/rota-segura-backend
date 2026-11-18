@@ -7,11 +7,9 @@ const emailValido = (email) => {
   return regex.test(email);
 };
 
-// POST /api/gestores - Cadastrar um novo gestor
 exports.criar = async (req, res) => {
   const { nome, email, senha, telefone } = req.body;
 
-  // Validação dos dados obrigatórios
   if (!nome || !email || !senha) {
     return res.status(400).json({ erro: 'Nome, e-mail e senha são obrigatórios.' });
   }
@@ -21,16 +19,13 @@ exports.criar = async (req, res) => {
   }
 
   try {
-    // Verifica se o e-mail já está cadastrado
     const emailExistente = await db.query('SELECT id FROM usuarios WHERE email = $1', [email]);
     if (emailExistente.rows.length > 0) {
       return res.status(400).json({ erro: 'O e-mail informado já está em uso.' });
     }
 
-    // Criptografa a senha antes de salvar
     const senhaHash = await bcrypt.hash(senha, SALT_ROUNDS);
 
-    // Insere o gestor garantindo o perfil 'GESTOR'
     const result = await db.query(
       `INSERT INTO usuarios (nome, email, senha, perfil, telefone) 
        VALUES ($1, $2, $3, $4, $5) 
@@ -45,7 +40,6 @@ exports.criar = async (req, res) => {
   }
 };
 
-// GET /api/gestores - Listar todos os gestores
 exports.listar = async (req, res) => {
   try {
     const result = await db.query(
@@ -61,7 +55,6 @@ exports.listar = async (req, res) => {
   }
 };
 
-// GET /api/gestores/:id - Buscar gestor por ID
 exports.buscarPorId = async (req, res) => {
   const { id } = req.params;
 
@@ -84,7 +77,6 @@ exports.buscarPorId = async (req, res) => {
   }
 };
 
-// PUT /api/gestores/:id - Atualizar dados do gestor
 exports.atualizar = async (req, res) => {
   const { id } = req.params;
   const { nome, email, senha, telefone } = req.body;
@@ -98,13 +90,11 @@ exports.atualizar = async (req, res) => {
   }
 
   try {
-    // Verifica se o gestor existe
     const gestorExistente = await db.query('SELECT * FROM usuarios WHERE id = $1 AND perfil = \'GESTOR\'', [id]);
     if (gestorExistente.rows.length === 0) {
       return res.status(404).json({ erro: 'Gestor não encontrado.' });
     }
 
-    // Verifica se o e-mail informado pertence a outro usuário
     const emailConflito = await db.query('SELECT id FROM usuarios WHERE email = $1 AND id <> $2', [email, id]);
     if (emailConflito.rows.length > 0) {
       return res.status(400).json({ erro: 'O e-mail informado já pertence a outro usuário.' });
@@ -112,7 +102,6 @@ exports.atualizar = async (req, res) => {
 
     let result;
 
-    // Atualização com alteração de senha
     if (senha) {
       const senhaHash = await bcrypt.hash(senha, SALT_ROUNDS);
       result = await db.query(
@@ -123,7 +112,6 @@ exports.atualizar = async (req, res) => {
         [nome, email, senhaHash, telefone || null, id]
       );
     } else {
-      // Atualização mantendo a senha atual
       result = await db.query(
         `UPDATE usuarios 
          SET nome = $1, email = $2, telefone = $3 
@@ -140,7 +128,6 @@ exports.atualizar = async (req, res) => {
   }
 };
 
-// DELETE /api/gestores/:id - Remover gestor
 exports.deletar = async (req, res) => {
   const { id } = req.params;
 
