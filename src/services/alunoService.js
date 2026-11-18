@@ -62,6 +62,7 @@ const normalizarResponsavelId = (responsavelId, dataNascimento, emailResponsavel
 
 const criarAluno = async (dados = {}) => {
     const {
+        matricula,
         nome,
         data_nascimento,
         serie,
@@ -79,6 +80,7 @@ const criarAluno = async (dados = {}) => {
     } = dados;
 
     if (
+        !matricula ||
         !nome ||
         !data_nascimento ||
         !serie ||
@@ -91,7 +93,7 @@ const criarAluno = async (dados = {}) => {
         rota_id === undefined || rota_id === null || rota_id === ''
     ) {
         throw criarErro(
-            'Nome, data de nascimento, série, endereço, número, bairro, cidade, estado, CEP e rota são obrigatórios.'
+            'Matrícula, nome, data de nascimento, série, endereço, número, bairro, cidade, estado, CEP e rota são obrigatórios.'
         );
     }
 
@@ -121,6 +123,7 @@ const criarAluno = async (dados = {}) => {
     }
 
     return AlunoModel.create({
+        matricula: String(matricula).trim(),
         nome,
         data_nascimento: dataNascimentoNormalizada,
         serie,
@@ -162,6 +165,15 @@ const buscarAlunoPorId = async (id) => {
 const atualizarAluno = async (id, dados) => {
     const alunoExistente = await buscarAlunoPorId(id);
     const dadosAtualizados = { ...dados };
+
+    // Trata e limpa a matrícula caso venha na atualização
+    if (dadosAtualizados.matricula !== undefined) {
+        if (dadosAtualizados.matricula && String(dadosAtualizados.matricula).trim() !== '') {
+            dadosAtualizados.matricula = String(dadosAtualizados.matricula).trim();
+        } else {
+            throw criarErro('A matrícula não pode ficar em branco.');
+        }
+    }
 
     const dataNascimento = normalizarDataNascimento(
         Object.prototype.hasOwnProperty.call(dadosAtualizados, 'data_nascimento')
