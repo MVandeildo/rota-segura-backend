@@ -1,12 +1,9 @@
-/* permite acessar o PostgreSQL */
 const db = require('../config/database');
 
-/* permite acessar o bcrypt para criptografar a senha */
 const bcrypt = require('bcrypt');
 
 const SALT_ROUNDS = 10;
 
-/* Função para validar o formato do email */
 const emailValido = (email) => {
   const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   return regex.test(email);
@@ -14,7 +11,6 @@ const emailValido = (email) => {
 
 const idValido = (id) => /^\d+$/.test(id) && Number(id) > 0;
 
-/*POST /motoristas - Cria um novo motorista */
 exports.criar = async (req, res) => {
     const { nome, email, senha, telefone } = req.body;
     const nomeFormatado = typeof nome === 'string' ? nome.trim() : '';
@@ -38,8 +34,9 @@ exports.criar = async (req, res) => {
         }
 
         const senhaCriptografada = await bcrypt.hash(senha, SALT_ROUNDS);
+        
         const result = await db.query(
-            `INSERT INTO usuarios (nome, email, senha, perfil, telefone)
+            `INSERT INTO usuarios (nome, email, password, perfil, telefone)
              VALUES ($1, $2, $3, 'MOTORISTA', $4)
              RETURNING id, nome, email, perfil, telefone, created_at`,
             [nomeFormatado, emailFormatado, senhaCriptografada, telefone?.trim() || null]
@@ -50,14 +47,15 @@ exports.criar = async (req, res) => {
             motorista: result.rows[0]
         });
     } catch (error) {
+        console.error('ERRO DETALHADO AO CADASTRAR MOTORISTA:', error);
+
         if (error.code === '23505') {
             return res.status(409).json({ erro: 'E-mail já cadastrado.' });
         }
-        return res.status(500).json({ erro: 'Erro ao cadastrar motorista.' });
+        return res.status(500).json({ erro: 'Erro ao cadastrar motorista: ' + error.message });
     }
 };
 
-    /*GET /motoristas - Lista todos os motoristas cadastrados */
 exports.listar = async (req, res) => {
     try {
         const result = await db.query(
@@ -71,10 +69,7 @@ exports.listar = async (req, res) => {
 
     } catch (error) {
         console.error('Erro ao listar motoristas:', error);
-
-        return res.status(500).json({
-            erro: 'Erro ao listar motoristas.'
-        });
+        return res.status(500).json({ erro: 'Erro ao listar motoristas.' });
     }
 };
 
@@ -95,11 +90,11 @@ exports.buscarPorId = async (req, res) => {
         }
         return res.status(200).json(result.rows[0]);
     } catch (error) {
+        console.error('Erro ao buscar motorista:', error);
         return res.status(500).json({ erro: 'Erro ao buscar motorista.' });
     }
 };
 
-/* PUT /motoristas/:id - Atualiza os dados de um motorista existente */
 exports.atualizar = async (req, res) => {
     const { id } = req.params;
     if (!idValido(id)) {
@@ -132,7 +127,7 @@ exports.atualizar = async (req, res) => {
         if (typeof dados.senha !== 'string' || !dados.senha) {
             return res.status(400).json({ erro: 'Senha não pode ser vazia.' });
         }
-        campos.push(`senha = $${valores.length + 1}`);
+        campos.push(`password = $${valores.length + 1}`);
         valores.push(await bcrypt.hash(dados.senha, SALT_ROUNDS));
     }
 
@@ -161,6 +156,7 @@ exports.atualizar = async (req, res) => {
             motorista: result.rows[0]
         });
     } catch (error) {
+        console.error('Erro ao atualizar motorista:', error);
         if (error.code === '23505') {
             return res.status(409).json({ erro: 'E-mail já cadastrado.' });
         }
@@ -168,7 +164,6 @@ exports.atualizar = async (req, res) => {
     }
 };
 
-/* DELETE /api/motoristas/:id */
 exports.deletar = async (req, res) => {
     const { id } = req.params;
     if (!idValido(id)) {
@@ -187,6 +182,7 @@ exports.deletar = async (req, res) => {
         return res.status(204).send();
 
     } catch (error) {
+        console.error('Erro ao excluir motorista:', error);
         if (error.code === '23503') {
             return res.status(409).json({ erro: 'Motorista vinculado a uma rota não pode ser removido.' });
         }
