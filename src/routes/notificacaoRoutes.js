@@ -18,4 +18,15 @@ router.delete(
     notificacaoController.removerDispositivo
 );
 
+router.get('/', authMiddleware, notificacaoController.listar);
+router.post(
+    '/comunicados',
+    authMiddleware,
+    requirePerfil('MOTORISTA'),
+    notificacaoController.criarComunicado
+);
+router.patch('/ler-todas', authMiddleware, notificacaoController.marcarTodasComoLidas);
+router.patch('/:id/lida', authMiddleware, notificacaoController.marcarComoLida);
+router.delete('/:id', authMiddleware, notificacaoController.excluir);
+
 module.exports = router;
